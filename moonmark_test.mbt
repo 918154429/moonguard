@@ -29,3 +29,17 @@ test "limit atx headings to six levels" {
     content="<h6>Deep</h6>\n<p>####### not heading</p>\n",
   )
 }
+
+test "render unordered list" {
+  inspect(
+    @moonmark.render("- one\n- two & more\n* three"),
+    content="<ul>\n<li>one</li>\n<li>two &amp; more</li>\n<li>three</li>\n</ul>\n",
+  )
+}
+
+test "separate lists from paragraphs" {
+  inspect(
+    @moonmark.render("intro\n- item\n\n# Done"),
+    content="<p>intro</p>\n<ul>\n<li>item</li>\n</ul>\n<h1>Done</h1>\n",
+  )
+}

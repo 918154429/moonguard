@@ -2,17 +2,24 @@
 pub fn render(markdown : String) -> String {
   let out = StringBuilder(size_hint=markdown.length() + 32)
   let paragraph = StringBuilder()
+  let list_items : Array[String] = []
   for raw_line in split_lines(markdown[:]) {
     let line = raw_line.trim_end(chars="\r")
     let trimmed = line.trim()
     if trimmed.length() == 0 {
       flush_paragraph(out, paragraph)
+      flush_unordered_list(out, list_items)
     } else {
       let heading_level = heading_level(trimmed)
       if heading_level > 0 {
         flush_paragraph(out, paragraph)
+        flush_unordered_list(out, list_items)
         write_heading(out, heading_level, heading_text(trimmed, heading_level))
+      } else if is_unordered_item(trimmed) {
+        flush_paragraph(out, paragraph)
+        list_items.push(escape_html(unordered_item_text(trimmed)))
       } else {
+        flush_unordered_list(out, list_items)
         if !paragraph.is_empty() {
           paragraph.write(" ")
         }
@@ -21,6 +28,7 @@ pub fn render(markdown : String) -> String {
     }
   }
   flush_paragraph(out, paragraph)
+  flush_unordered_list(out, list_items)
   out.to_string()
 }
 
@@ -30,6 +38,19 @@ fn flush_paragraph(out : StringBuilder, paragraph : StringBuilder) -> Unit {
     out.write(paragraph.to_string())
     out.write("</p>\n")
     paragraph.reset()
+  }
+}
+
+fn flush_unordered_list(out : StringBuilder, items : Array[String]) -> Unit {
+  if !items.is_empty() {
+    out.write("<ul>\n")
+    for item in items {
+      out.write("<li>")
+      out.write(item)
+      out.write("</li>\n")
+    }
+    out.write("</ul>\n")
+    items.clear()
   }
 }
 
@@ -82,6 +103,17 @@ fn heading_level(line : StringView) -> Int {
 
 fn heading_text(line : StringView, level : Int) -> StringView {
   line.view(start_offset=level).trim()
+}
+
+fn is_unordered_item(line : StringView) -> Bool {
+  line.length() >= 2 &&
+  (line.unsafe_get(0).to_int() == '-'.to_int() ||
+   line.unsafe_get(0).to_int() == '*'.to_int()) &&
+  line.unsafe_get(1).to_int() == ' '.to_int()
+}
+
+fn unordered_item_text(line : StringView) -> StringView {
+  line.view(start_offset=2).trim()
 }
 
 fn write_heading(out : StringBuilder, level : Int, text : StringView) -> Unit {
