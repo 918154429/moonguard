@@ -57,3 +57,17 @@ test "separate ordered and unordered lists" {
     content="<ol>\n<li>first</li>\n</ol>\n<ul>\n<li>bullet</li>\n</ul>\n",
   )
 }
+
+test "render fenced code block" {
+  inspect(
+    @moonmark.render("```moonbit\nfn main { println(\"<ok>\") }\n```"),
+    content="<pre><code>fn main { println(&quot;&lt;ok&gt;&quot;) }\n</code></pre>\n",
+  )
+}
+
+test "close unclosed fenced code at document end" {
+  inspect(
+    @moonmark.render("```\n# not heading"),
+    content="<pre><code># not heading\n</code></pre>\n",
+  )
+}

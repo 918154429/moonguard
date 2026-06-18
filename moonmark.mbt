@@ -4,10 +4,25 @@ pub fn render(markdown : String) -> String {
   let paragraph = StringBuilder()
   let list_items : Array[String] = []
   let ordered_items : Array[String] = []
+  let code_block = StringBuilder()
+  let mut in_code_block = false
   for raw_line in split_lines(markdown[:]) {
     let line = raw_line.trim_end(chars="\r")
     let trimmed = line.trim()
-    if trimmed.length() == 0 {
+    if in_code_block {
+      if is_fence(trimmed) {
+        write_code_block(out, code_block)
+        in_code_block = false
+      } else {
+        code_block.write(escape_html(line))
+        code_block.write("\n")
+      }
+    } else if is_fence(trimmed) {
+      flush_paragraph(out, paragraph)
+      flush_unordered_list(out, list_items)
+      flush_ordered_list(out, ordered_items)
+      in_code_block = true
+    } else if trimmed.length() == 0 {
       flush_paragraph(out, paragraph)
       flush_unordered_list(out, list_items)
       flush_ordered_list(out, ordered_items)
@@ -39,6 +54,9 @@ pub fn render(markdown : String) -> String {
   flush_paragraph(out, paragraph)
   flush_unordered_list(out, list_items)
   flush_ordered_list(out, ordered_items)
+  if in_code_block {
+    write_code_block(out, code_block)
+  }
   out.to_string()
 }
 
@@ -75,6 +93,13 @@ fn flush_ordered_list(out : StringBuilder, items : Array[String]) -> Unit {
     out.write("</ol>\n")
     items.clear()
   }
+}
+
+fn write_code_block(out : StringBuilder, code : StringBuilder) -> Unit {
+  out.write("<pre><code>")
+  out.write(code.to_string())
+  out.write("</code></pre>\n")
+  code.reset()
 }
 
 ///| Escape text so user content is safe in an HTML text node.
@@ -160,6 +185,13 @@ fn ordered_item_text(line : StringView) -> StringView {
 
 fn is_ascii_digit(code : Int) -> Bool {
   code >= '0'.to_int() && code <= '9'.to_int()
+}
+
+fn is_fence(line : StringView) -> Bool {
+  line.length() >= 3 &&
+  line.unsafe_get(0).to_int() == '`'.to_int() &&
+  line.unsafe_get(1).to_int() == '`'.to_int() &&
+  line.unsafe_get(2).to_int() == '`'.to_int()
 }
 
 fn write_heading(out : StringBuilder, level : Int, text : StringView) -> Unit {
