@@ -89,3 +89,17 @@ test "render inline code in headings and lists" {
 test "escape unmatched backtick" {
   inspect(@moonmark.render("`open"), content="<p>`open</p>\n")
 }
+
+test "render inline links" {
+  inspect(
+    @moonmark.render("Read [docs](https://docs.moonbitlang.cn/?q=<x>)."),
+    content="<p>Read <a href=\"https://docs.moonbitlang.cn/?q=&lt;x&gt;\">docs</a>.</p>\n",
+  )
+}
+
+test "escape malformed links as text" {
+  inspect(
+    @moonmark.render("[broken](url"),
+    content="<p>[broken](url</p>\n",
+  )
+}

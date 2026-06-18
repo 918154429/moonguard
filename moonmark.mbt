@@ -130,6 +130,21 @@ pub fn render_inline(text : StringView) -> String {
           i += 1
         }
       }
+    } else if ch == '[' {
+      match parse_link(text, i) {
+        Some(link) => {
+          out.write("<a href=\"")
+          out.write(escape_html(link.url))
+          out.write("\">")
+          out.write(escape_html(link.label))
+          out.write("</a>")
+          i = link.end_offset
+        }
+        None => {
+          write_escaped_char(out, ch)
+          i += 1
+        }
+      }
     } else {
       write_escaped_char(out, ch)
       i += 1
@@ -156,6 +171,35 @@ fn find_char(text : StringView, target : Char, start : Int) -> Int? {
     }
   }
   None
+}
+
+priv struct LinkSpan {
+  label : StringView
+  url : StringView
+  end_offset : Int
+}
+
+fn parse_link(text : StringView, open : Int) -> LinkSpan? {
+  match find_char(text, ']', open + 1) {
+    Some(close_label) => {
+      if close_label + 1 < text.length() &&
+        text.unsafe_get(close_label + 1).to_int() == '('.to_int() {
+        match find_char(text, ')', close_label + 2) {
+          Some(close_url) => {
+            Some({
+              label: text.view(start_offset=open + 1, end_offset=close_label),
+              url: text.view(start_offset=close_label + 2, end_offset=close_url),
+              end_offset: close_url + 1,
+            })
+          }
+          None => None
+        }
+      } else {
+        None
+      }
+    }
+    None => None
+  }
 }
 
 fn split_lines(text : StringView) -> Array[StringView] {
