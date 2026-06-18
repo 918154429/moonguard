@@ -71,3 +71,21 @@ test "close unclosed fenced code at document end" {
     content="<pre><code># not heading\n</code></pre>\n",
   )
 }
+
+test "render inline code spans" {
+  inspect(
+    @moonmark.render("Use `moon test` before `<push>`."),
+    content="<p>Use <code>moon test</code> before <code>&lt;push&gt;</code>.</p>\n",
+  )
+}
+
+test "render inline code in headings and lists" {
+  inspect(
+    @moonmark.render("## Run `moon`\n- call `render`"),
+    content="<h2>Run <code>moon</code></h2>\n<ul>\n<li>call <code>render</code></li>\n</ul>\n",
+  )
+}
+
+test "escape unmatched backtick" {
+  inspect(@moonmark.render("`open"), content="<p>`open</p>\n")
+}

@@ -36,18 +36,18 @@ pub fn render(markdown : String) -> String {
       } else if is_unordered_item(trimmed) {
         flush_paragraph(out, paragraph)
         flush_ordered_list(out, ordered_items)
-        list_items.push(escape_html(unordered_item_text(trimmed)))
+        list_items.push(render_inline(unordered_item_text(trimmed)))
       } else if ordered_marker_len(trimmed) > 0 {
         flush_paragraph(out, paragraph)
         flush_unordered_list(out, list_items)
-        ordered_items.push(escape_html(ordered_item_text(trimmed)))
+        ordered_items.push(render_inline(ordered_item_text(trimmed)))
       } else {
         flush_unordered_list(out, list_items)
         flush_ordered_list(out, ordered_items)
         if !paragraph.is_empty() {
           paragraph.write(" ")
         }
-        paragraph.write(escape_html(trimmed))
+        paragraph.write(render_inline(trimmed))
       }
     }
   }
@@ -106,16 +106,56 @@ fn write_code_block(out : StringBuilder, code : StringBuilder) -> Unit {
 pub fn escape_html(text : StringView) -> String {
   let out = StringBuilder(size_hint=text.length())
   for ch in text[:] {
-    match ch {
-      '&' => out.write("&amp;")
-      '<' => out.write("&lt;")
-      '>' => out.write("&gt;")
-      '"' => out.write("&quot;")
-      '\'' => out.write("&#39;")
-      _ => out.write_char(ch)
+    write_escaped_char(out, ch)
+  }
+  out.to_string()
+}
+
+///| Render inline Markdown inside text-bearing blocks.
+pub fn render_inline(text : StringView) -> String {
+  let out = StringBuilder(size_hint=text.length())
+  let mut i = 0
+  while i < text.length() {
+    let ch = text.unsafe_get(i).unsafe_to_char()
+    if ch == '`' {
+      match find_char(text, '`', i + 1) {
+        Some(close) => {
+          out.write("<code>")
+          out.write(escape_html(text.view(start_offset=i + 1, end_offset=close)))
+          out.write("</code>")
+          i = close + 1
+        }
+        None => {
+          write_escaped_char(out, ch)
+          i += 1
+        }
+      }
+    } else {
+      write_escaped_char(out, ch)
+      i += 1
     }
   }
   out.to_string()
+}
+
+fn write_escaped_char(out : StringBuilder, ch : Char) -> Unit {
+  match ch {
+    '&' => out.write("&amp;")
+    '<' => out.write("&lt;")
+    '>' => out.write("&gt;")
+    '"' => out.write("&quot;")
+    '\'' => out.write("&#39;")
+    _ => out.write_char(ch)
+  }
+}
+
+fn find_char(text : StringView, target : Char, start : Int) -> Int? {
+  for i = start; i < text.length(); i = i + 1 {
+    if text.unsafe_get(i).to_int() == target.to_int() {
+      return Some(i)
+    }
+  }
+  None
 }
 
 fn split_lines(text : StringView) -> Array[StringView] {
@@ -198,32 +238,32 @@ fn write_heading(out : StringBuilder, level : Int, text : StringView) -> Unit {
   match level {
     1 => {
       out.write("<h1>")
-      out.write(escape_html(text))
+      out.write(render_inline(text))
       out.write("</h1>\n")
     }
     2 => {
       out.write("<h2>")
-      out.write(escape_html(text))
+      out.write(render_inline(text))
       out.write("</h2>\n")
     }
     3 => {
       out.write("<h3>")
-      out.write(escape_html(text))
+      out.write(render_inline(text))
       out.write("</h3>\n")
     }
     4 => {
       out.write("<h4>")
-      out.write(escape_html(text))
+      out.write(render_inline(text))
       out.write("</h4>\n")
     }
     5 => {
       out.write("<h5>")
-      out.write(escape_html(text))
+      out.write(render_inline(text))
       out.write("</h5>\n")
     }
     _ => {
       out.write("<h6>")
-      out.write(escape_html(text))
+      out.write(render_inline(text))
       out.write("</h6>\n")
     }
   }
