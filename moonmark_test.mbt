@@ -43,3 +43,17 @@ test "separate lists from paragraphs" {
     content="<p>intro</p>\n<ul>\n<li>item</li>\n</ul>\n<h1>Done</h1>\n",
   )
 }
+
+test "render ordered list" {
+  inspect(
+    @moonmark.render("1. collect\n2. parse <safe>\n10. render"),
+    content="<ol>\n<li>collect</li>\n<li>parse &lt;safe&gt;</li>\n<li>render</li>\n</ol>\n",
+  )
+}
+
+test "separate ordered and unordered lists" {
+  inspect(
+    @moonmark.render("1. first\n- bullet"),
+    content="<ol>\n<li>first</li>\n</ol>\n<ul>\n<li>bullet</li>\n</ul>\n",
+  )
+}

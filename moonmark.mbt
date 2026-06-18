@@ -3,23 +3,32 @@ pub fn render(markdown : String) -> String {
   let out = StringBuilder(size_hint=markdown.length() + 32)
   let paragraph = StringBuilder()
   let list_items : Array[String] = []
+  let ordered_items : Array[String] = []
   for raw_line in split_lines(markdown[:]) {
     let line = raw_line.trim_end(chars="\r")
     let trimmed = line.trim()
     if trimmed.length() == 0 {
       flush_paragraph(out, paragraph)
       flush_unordered_list(out, list_items)
+      flush_ordered_list(out, ordered_items)
     } else {
       let heading_level = heading_level(trimmed)
       if heading_level > 0 {
         flush_paragraph(out, paragraph)
         flush_unordered_list(out, list_items)
+        flush_ordered_list(out, ordered_items)
         write_heading(out, heading_level, heading_text(trimmed, heading_level))
       } else if is_unordered_item(trimmed) {
         flush_paragraph(out, paragraph)
+        flush_ordered_list(out, ordered_items)
         list_items.push(escape_html(unordered_item_text(trimmed)))
+      } else if ordered_marker_len(trimmed) > 0 {
+        flush_paragraph(out, paragraph)
+        flush_unordered_list(out, list_items)
+        ordered_items.push(escape_html(ordered_item_text(trimmed)))
       } else {
         flush_unordered_list(out, list_items)
+        flush_ordered_list(out, ordered_items)
         if !paragraph.is_empty() {
           paragraph.write(" ")
         }
@@ -29,6 +38,7 @@ pub fn render(markdown : String) -> String {
   }
   flush_paragraph(out, paragraph)
   flush_unordered_list(out, list_items)
+  flush_ordered_list(out, ordered_items)
   out.to_string()
 }
 
@@ -50,6 +60,19 @@ fn flush_unordered_list(out : StringBuilder, items : Array[String]) -> Unit {
       out.write("</li>\n")
     }
     out.write("</ul>\n")
+    items.clear()
+  }
+}
+
+fn flush_ordered_list(out : StringBuilder, items : Array[String]) -> Unit {
+  if !items.is_empty() {
+    out.write("<ol>\n")
+    for item in items {
+      out.write("<li>")
+      out.write(item)
+      out.write("</li>\n")
+    }
+    out.write("</ol>\n")
     items.clear()
   }
 }
@@ -114,6 +137,29 @@ fn is_unordered_item(line : StringView) -> Bool {
 
 fn unordered_item_text(line : StringView) -> StringView {
   line.view(start_offset=2).trim()
+}
+
+fn ordered_marker_len(line : StringView) -> Int {
+  let mut i = 0
+  while i < line.length() && is_ascii_digit(line.unsafe_get(i).to_int()) {
+    i += 1
+  }
+  if i > 0 &&
+    i + 1 < line.length() &&
+    line.unsafe_get(i).to_int() == '.'.to_int() &&
+    line.unsafe_get(i + 1).to_int() == ' '.to_int() {
+    i + 2
+  } else {
+    0
+  }
+}
+
+fn ordered_item_text(line : StringView) -> StringView {
+  line.view(start_offset=ordered_marker_len(line)).trim()
+}
+
+fn is_ascii_digit(code : Int) -> Bool {
+  code >= '0'.to_int() && code <= '9'.to_int()
 }
 
 fn write_heading(out : StringBuilder, level : Int, text : StringView) -> Unit {
