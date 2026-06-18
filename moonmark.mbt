@@ -130,6 +130,32 @@ pub fn render_inline(text : StringView) -> String {
           i += 1
         }
       }
+    } else if ch == '*' && char_at(text, i + 1) == Some('*') {
+      match find_double_star(text, i + 2) {
+        Some(close) => {
+          out.write("<strong>")
+          out.write(escape_html(text.view(start_offset=i + 2, end_offset=close)))
+          out.write("</strong>")
+          i = close + 2
+        }
+        None => {
+          write_escaped_char(out, ch)
+          i += 1
+        }
+      }
+    } else if ch == '*' {
+      match find_char(text, '*', i + 1) {
+        Some(close) => {
+          out.write("<em>")
+          out.write(escape_html(text.view(start_offset=i + 1, end_offset=close)))
+          out.write("</em>")
+          i = close + 1
+        }
+        None => {
+          write_escaped_char(out, ch)
+          i += 1
+        }
+      }
     } else if ch == '[' {
       match parse_link(text, i) {
         Some(link) => {
@@ -167,6 +193,24 @@ fn write_escaped_char(out : StringBuilder, ch : Char) -> Unit {
 fn find_char(text : StringView, target : Char, start : Int) -> Int? {
   for i = start; i < text.length(); i = i + 1 {
     if text.unsafe_get(i).to_int() == target.to_int() {
+      return Some(i)
+    }
+  }
+  None
+}
+
+fn char_at(text : StringView, index : Int) -> Char? {
+  if index >= 0 && index < text.length() {
+    Some(text.unsafe_get(index).unsafe_to_char())
+  } else {
+    None
+  }
+}
+
+fn find_double_star(text : StringView, start : Int) -> Int? {
+  for i = start; i + 1 < text.length(); i = i + 1 {
+    if text.unsafe_get(i).to_int() == '*'.to_int() &&
+      text.unsafe_get(i + 1).to_int() == '*'.to_int() {
       return Some(i)
     }
   }

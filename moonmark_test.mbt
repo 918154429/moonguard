@@ -103,3 +103,17 @@ test "escape malformed links as text" {
     content="<p>[broken](url</p>\n",
   )
 }
+
+test "render emphasis and strong text" {
+  inspect(
+    @moonmark.render("*small* and **important <safe>**"),
+    content="<p><em>small</em> and <strong>important &lt;safe&gt;</strong></p>\n",
+  )
+}
+
+test "keep unmatched emphasis markers" {
+  inspect(
+    @moonmark.render("*open and **also open"),
+    content="<p>*open and **also open</p>\n",
+  )
+}
