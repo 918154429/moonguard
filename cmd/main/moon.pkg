@@ -1,0 +1,7 @@
+// import {
+//   "ccfoss/moonmark" @lib,
+// }
+
+options(
+  "is-main": true,
+)
