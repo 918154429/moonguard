@@ -15,3 +15,17 @@ test "render plain paragraph" {
 test "ignore all whitespace document" {
   inspect(@moonmark.render("   \n\t"), content="")
 }
+
+test "render headings and paragraphs" {
+  inspect(
+    @moonmark.render("# Title\nhello\nworld\n\n## Next"),
+    content="<h1>Title</h1>\n<p>hello world</p>\n<h2>Next</h2>\n",
+  )
+}
+
+test "limit atx headings to six levels" {
+  inspect(
+    @moonmark.render("###### Deep\n####### not heading"),
+    content="<h6>Deep</h6>\n<p>####### not heading</p>\n",
+  )
+}
