@@ -12,6 +12,13 @@ struct CheckOptions {
   current : String
   next : String
   format : String
+  ignore_file : String
+} derive(Eq, Debug)
+
+///|
+struct ReportOptions {
+  format : String
+  ignore_file : String
 } derive(Eq, Debug)
 
 ///|
@@ -82,11 +89,14 @@ fn report_text_command(args : ArrayView[String]) -> CliResult {
   if args.length() < 3 {
     return error_result("error: report-text requires OLD_TEXT and NEW_TEXT")
   }
-  match parse_format_option(args, 3) {
+  match parse_report_options(args, 3) {
     Err(message) => error_result(message)
-    Ok(format) => {
+    Ok(options) => {
       let report = @moonguard.diff_interfaces(args[1], args[2])
-      ok_result(render_report(report, format))
+      match apply_ignore_file(report, options.ignore_file) {
+        Err(message) => error_result(message)
+        Ok(filtered) => ok_result(render_report(filtered, options.format))
+      }
     }
   }
 }
@@ -96,12 +106,16 @@ fn report_files_command(args : ArrayView[String]) -> CliResult {
   if args.length() < 3 {
     return error_result("error: report requires OLD_MBTI and NEW_MBTI")
   }
-  match parse_format_option(args, 3) {
+  match parse_report_options(args, 3) {
     Err(message) => error_result(message)
     Ok(format) =>
       match diff_file_report(args[1], args[2]) {
         Err(message) => error_result(message)
-        Ok(report) => ok_result(render_report(report, format))
+        Ok(report) =>
+          match apply_ignore_file(report, format.ignore_file) {
+            Err(message) => error_result(message)
+            Ok(filtered) => ok_result(render_report(filtered, format.format))
+          }
       }
   }
 }
@@ -111,12 +125,16 @@ fn report_dirs_command(args : ArrayView[String]) -> CliResult {
   if args.length() < 3 {
     return error_result("error: report-dir requires OLD_DIR and NEW_DIR")
   }
-  match parse_format_option(args, 3) {
+  match parse_report_options(args, 3) {
     Err(message) => error_result(message)
     Ok(format) =>
       match diff_dir_report(args[1], args[2]) {
         Err(message) => error_result(message)
-        Ok(report) => ok_result(render_report(report, format))
+        Ok(report) =>
+          match apply_ignore_file(report, format.ignore_file) {
+            Err(message) => error_result(message)
+            Ok(filtered) => ok_result(render_report(filtered, format.format))
+          }
       }
   }
 }
@@ -132,12 +150,16 @@ fn check_files_command(args : ArrayView[String]) -> CliResult {
       match diff_file_report(args[1], args[2]) {
         Err(message) => error_result(message)
         Ok(report) =>
-          check_report_result(
-            report,
-            options.current,
-            options.next,
-            options.format,
-          )
+          match apply_ignore_file(report, options.ignore_file) {
+            Err(message) => error_result(message)
+            Ok(filtered) =>
+              check_report_result(
+                filtered,
+                options.current,
+                options.next,
+                options.format,
+              )
+          }
       }
   }
 }
@@ -213,6 +235,39 @@ fn diff_dir_report(
 }
 
 ///|
+fn apply_ignore_file(
+  report : @moonguard.ApiReport,
+  ignore_file : String,
+) -> Result[@moonguard.ApiReport, String] {
+  if ignore_file.length() == 0 {
+    return Ok(report)
+  }
+  let rules_text = read_file_raw(ignore_file)
+  if rules_text.has_prefix(read_error_prefix) {
+    let message = rules_text[read_error_prefix.length():].to_owned()
+    return Err("error: cannot read ignore file '\{ignore_file}': \{message}")
+  }
+  let parsed = @moonguard.parse_ignore_rules(rules_text)
+  if !parsed.errors.is_empty() {
+    return Err(render_ignore_errors(ignore_file, parsed.errors))
+  }
+  Ok(@moonguard.filter_report_with_rules(report, parsed.rules))
+}
+
+///|
+fn render_ignore_errors(ignore_file : String, errors : Array[String]) -> String {
+  let out = StringBuilder()
+  out.write("error: invalid ignore file '")
+  out.write(ignore_file)
+  out.write("'")
+  for error in errors {
+    out.write("\n  ")
+    out.write(error)
+  }
+  out.to_string()
+}
+
+///|
 fn read_dir_items(
   root : String,
   files : Array[String],
@@ -256,11 +311,12 @@ fn parse_file_list(raw : StringView) -> Array[String] {
 }
 
 ///|
-fn parse_format_option(
+fn parse_report_options(
   args : ArrayView[String],
   start : Int,
-) -> Result[String, String] {
+) -> Result[ReportOptions, String] {
   let mut format = "markdown"
+  let mut ignore_file = ""
   let mut i = start
   while i < args.length() {
     let option = args[i]
@@ -273,11 +329,17 @@ fn parse_format_option(
         Some(value) => format = value
       }
       i += 2
+    } else if option == "--ignore-file" {
+      if i + 1 >= args.length() {
+        return Err("error: --ignore-file requires a path")
+      }
+      ignore_file = args[i + 1]
+      i += 2
     } else {
       return Err("error: unknown option '\{option}'")
     }
   }
-  Ok(format)
+  Ok({ format, ignore_file })
 }
 
 ///|
@@ -288,6 +350,7 @@ fn parse_check_options(
   let mut current = ""
   let mut next = ""
   let mut format = "markdown"
+  let mut ignore_file = ""
   let mut i = start
   while i < args.length() {
     let option = args[i]
@@ -312,6 +375,12 @@ fn parse_check_options(
         Some(value) => format = value
       }
       i += 2
+    } else if option == "--ignore-file" {
+      if i + 1 >= args.length() {
+        return Err("error: --ignore-file requires a path")
+      }
+      ignore_file = args[i + 1]
+      i += 2
     } else {
       return Err("error: unknown option '\{option}'")
     }
@@ -321,7 +390,7 @@ fn parse_check_options(
   } else if next.length() == 0 {
     Err("error: check requires --next major.minor.patch")
   } else {
-    Ok({ current, next, format })
+    Ok({ current, next, format, ignore_file })
   }
 }
 
@@ -401,14 +470,15 @@ fn help_text() -> String {
     #|moonguard 0.1.0
     #|
     #|Usage:
-    #|  moon run --target js cmd/main -- report old.mbti new.mbti [--format markdown|json]
-    #|  moon run --target js cmd/main -- report-dir old_dir new_dir [--format markdown|json]
-    #|  moon run --target js cmd/main -- check old.mbti new.mbti --current 0.1.0 --next 0.2.0 [--format markdown|json]
-    #|  moon run cmd/main -- report-text "pub fn old() -> Unit" "pub fn new() -> Unit" [--format markdown|json]
+    #|  moon run --target js cmd/main -- report old.mbti new.mbti [--format markdown|json] [--ignore-file path]
+    #|  moon run --target js cmd/main -- report-dir old_dir new_dir [--format markdown|json] [--ignore-file path]
+    #|  moon run --target js cmd/main -- check old.mbti new.mbti --current 0.1.0 --next 0.2.0 [--format markdown|json] [--ignore-file path]
+    #|  moon run cmd/main -- report-text "pub fn old() -> Unit" "pub fn new() -> Unit" [--format markdown|json] [--ignore-file path]
     #|  moon run cmd/main -- --version
     #|  moon run cmd/main -- --help
     #|
     #|Compare MoonBit interface snapshots and print compatibility reports.
     #|The check command exits with 1 when the proposed SemVer bump is insufficient.
+    #|Ignore files use rules such as `ignore fn debug_tmp`.
   help
 }

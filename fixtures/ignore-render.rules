@@ -1,0 +1,2 @@
+# Ignore the demo breaking change so the fixture can exercise minor checks.
+ignore fn render

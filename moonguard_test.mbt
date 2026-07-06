@@ -462,6 +462,209 @@ test "interface version check combines diff and semver" {
 }
 
 ///|
+test "parse ignore rules with comments and reasons" {
+  let parsed = @moonguard.parse_ignore_rules(
+    (
+      #|# accepted experimental surface
+      #|ignore fn debug_tmp temporary demo api
+      #|ignore field Options.experimental // inline comment
+      #|
+      #|ignore * pkg.generated.mbti::internal_*
+    ),
+  )
+  inspect(parsed.errors.length(), content="0")
+  inspect(parsed.rules.length(), content="3")
+  inspect(parsed.rules[0].item_kind, content="fn")
+  inspect(parsed.rules[0].name, content="debug_tmp")
+  inspect(parsed.rules[0].reason, content="temporary demo api")
+  inspect(parsed.rules[1].item_kind, content="field")
+  inspect(parsed.rules[1].name, content="Options.experimental")
+  inspect(parsed.rules[1].reason, content="")
+  inspect(parsed.rules[2].item_kind, content="*")
+  inspect(parsed.rules[2].name, content="pkg.generated.mbti::internal_*")
+}
+
+///|
+test "parse ignore rules reports invalid lines" {
+  let parsed = @moonguard.parse_ignore_rules(
+    (
+      #|skip fn ignored
+      #|ignore fn
+      #|ignore not-a-kind symbol
+      #|ignore fn ok
+    ),
+  )
+  inspect(parsed.rules.length(), content="1")
+  inspect(parsed.rules[0].name, content="ok")
+  inspect(parsed.errors.length(), content="3")
+  inspect(parsed.errors[0], content="line 1: expected 'ignore KIND NAME'")
+  inspect(
+    parsed.errors[1],
+    content="line 2: ignore rule requires kind and name",
+  )
+  inspect(parsed.errors[2], content="line 3: invalid ignore kind 'not-a-kind'")
+}
+
+///|
+test "filter report removes exact ignored function" {
+  let report = @moonguard.diff_interfaces(
+    (
+      #|pub fn render(String) -> String
+    ),
+    (
+      #|pub fn debug_tmp() -> Unit
+      #|pub fn parse(String) -> Unit
+      #|pub fn render(String) -> String
+    ),
+  )
+  let filtered = @moonguard.filter_report(report, "ignore fn debug_tmp")
+  assert_true(filtered.recommendation == @moonguard.Minor)
+  inspect(filtered.changes.length(), content="1")
+  inspect(filtered.changes[0].name, content="parse")
+}
+
+///|
+test "filter report can reduce recommendation to patch" {
+  let report = @moonguard.diff_interfaces(
+    (
+      #|pub fn render(String) -> String
+    ),
+    (
+      #|pub fn debug_tmp() -> Unit
+      #|pub fn render(String) -> String
+    ),
+  )
+  let filtered = @moonguard.filter_report(report, "ignore fn debug_tmp")
+  assert_true(filtered.recommendation == @moonguard.Patch)
+  inspect(filtered.changes.length(), content="0")
+}
+
+///|
+test "filter report ignores invalid rules but applies valid ones" {
+  let report = @moonguard.diff_interfaces(
+    (
+      #|pub fn render(String) -> String
+    ),
+    (
+      #|pub fn debug_tmp() -> Unit
+      #|pub fn render(String) -> String
+    ),
+  )
+  let filtered = @moonguard.filter_report(
+    report,
+    (
+      #|bad rule
+      #|ignore fn debug_tmp
+    ),
+  )
+  assert_true(filtered.recommendation == @moonguard.Patch)
+  inspect(filtered.changes.length(), content="0")
+}
+
+///|
+test "filter report matches field and constructor names" {
+  let report = @moonguard.diff_interfaces(
+    (
+      #|pub struct Options {
+      #|}
+      #|pub enum Level {
+      #|  Basic
+      #|}
+    ),
+    (
+      #|pub struct Options {
+      #|  experimental : Bool
+      #|}
+      #|pub enum Level {
+      #|  Basic
+      #|  Experimental
+      #|}
+    ),
+  )
+  let filtered = @moonguard.filter_report(
+    report,
+    (
+      #|ignore field Options.experimental
+      #|ignore constructor Level.Experimental
+    ),
+  )
+  assert_true(filtered.recommendation == @moonguard.Patch)
+  inspect(filtered.changes.length(), content="0")
+}
+
+///|
+test "filter report supports wildcard kind and name" {
+  let report = @moonguard.diff_interfaces(
+    (
+      #|pub fn render(String) -> String
+      #|pub fn keep() -> Unit
+    ),
+    (
+      #|pub fn internal_parse(String) -> Unit
+      #|pub fn internal_render(String) -> String
+      #|pub fn keep() -> Unit
+      #|pub fn render(String) -> String
+    ),
+  )
+  let filtered = @moonguard.filter_report(report, "ignore * internal_*")
+  assert_true(filtered.recommendation == @moonguard.Patch)
+  inspect(filtered.changes.length(), content="0")
+}
+
+///|
+test "filter report supports infix wildcard names" {
+  let report = @moonguard.diff_interfaces(
+    "",
+    (
+      #|pub fn pkg::experimental_render() -> Unit
+      #|pub fn stable_render() -> Unit
+    ),
+  )
+  let filtered = @moonguard.filter_report(report, "ignore fn *experimental*")
+  assert_true(filtered.recommendation == @moonguard.Minor)
+  inspect(filtered.changes.length(), content="1")
+  inspect(filtered.changes[0].name, content="stable_render")
+}
+
+///|
+test "filter report kind change matches either side kind" {
+  let report = @moonguard.diff_interfaces(
+    (
+      #|pub struct Options {
+      #|}
+    ),
+    (
+      #|pub enum Options {
+      #|}
+    ),
+  )
+  let filtered_by_old = @moonguard.filter_report(
+    report, "ignore struct Options",
+  )
+  assert_true(filtered_by_old.recommendation == @moonguard.Patch)
+  inspect(filtered_by_old.changes.length(), content="0")
+  let filtered_by_new = @moonguard.filter_report(report, "ignore enum Options")
+  assert_true(filtered_by_new.recommendation == @moonguard.Patch)
+  inspect(filtered_by_new.changes.length(), content="0")
+}
+
+///|
+test "filter report with parsed rules leaves unmatched changes" {
+  let report = @moonguard.diff_interfaces(
+    (
+      #|pub fn old_name() -> Unit
+    ),
+    (
+      #|pub fn new_name() -> Unit
+    ),
+  )
+  let parsed = @moonguard.parse_ignore_rules("ignore fn other_name")
+  let filtered = @moonguard.filter_report_with_rules(report, parsed.rules)
+  assert_true(filtered.recommendation == @moonguard.Major)
+  inspect(filtered.changes.length(), content="2")
+}
+
+///|
 test "render markdown report" {
   let report = @moonguard.diff_interfaces(
     (

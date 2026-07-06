@@ -16,6 +16,12 @@ pub fn diff_interfaces(String, String) -> ApiReport
 
 pub fn diff_items(Array[ApiItem], Array[ApiItem]) -> ApiReport
 
+pub fn filter_report(ApiReport, String) -> ApiReport
+
+pub fn filter_report_with_rules(ApiReport, Array[ApiIgnoreRule]) -> ApiReport
+
+pub fn parse_ignore_rules(String) -> IgnoreParseResult
+
 pub fn parse_interface(String) -> Array[ApiItem]
 
 pub fn parse_interface_with_namespace(String, String) -> Array[ApiItem]
@@ -46,6 +52,12 @@ pub struct ApiChange {
   new_signature : String?
 } derive(Eq, @debug.Debug)
 
+pub struct ApiIgnoreRule {
+  item_kind : String
+  name : String
+  reason : String
+} derive(Eq, @debug.Debug)
+
 pub struct ApiItem {
   kind : String
   name : String
@@ -61,6 +73,11 @@ pub(all) enum ChangeKind {
   Added
   Removed
   Changed
+} derive(Eq, @debug.Debug)
+
+pub struct IgnoreParseResult {
+  rules : Array[ApiIgnoreRule]
+  errors : Array[String]
 } derive(Eq, @debug.Debug)
 
 pub(all) enum Impact {

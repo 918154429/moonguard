@@ -89,6 +89,42 @@ test "report-text rejects unknown format" {
 }
 
 ///|
+test "report-text validates ignore-file option" {
+  let result = run_args_result([
+    "moonguard", "report-text", "pub fn a() -> Unit", "pub fn a() -> Unit", "--ignore-file",
+  ])
+  inspect(result.output, content="error: --ignore-file requires a path")
+  inspect(result.exit_code, content="2")
+}
+
+///|
+test "report-text reports non-js ignore-file read error" {
+  let result = run_args_result([
+    "moonguard", "report-text", "pub fn a() -> Unit", "pub fn b() -> Unit", "--ignore-file",
+    "rules.txt",
+  ])
+  inspect(
+    result.output,
+    content="error: cannot read ignore file 'rules.txt': file input currently requires the JS backend; run with `moon run --target js cmd/main -- report old.mbti new.mbti`",
+  )
+  inspect(result.exit_code, content="2")
+}
+
+///|
+test "render ignore errors includes all parser errors" {
+  inspect(
+    render_ignore_errors("rules.txt", [
+      "line 1: expected 'ignore KIND NAME'", "line 2: ignore rule requires kind and name",
+    ]),
+    content=(
+      #|error: invalid ignore file 'rules.txt'
+      #|  line 1: expected 'ignore KIND NAME'
+      #|  line 2: ignore rule requires kind and name
+    ),
+  )
+}
+
+///|
 test "report-dir explains non-js backend requirement" {
   inspect(
     run_args(["moonguard", "report-dir", "old-dir", "new-dir"]),
@@ -176,4 +212,5 @@ test "help mentions file and text modes" {
   assert_true(help.contains("check old.mbti new.mbti"))
   assert_true(help.contains("report-text"))
   assert_true(help.contains("--format markdown|json"))
+  assert_true(help.contains("--ignore-file path"))
 }
