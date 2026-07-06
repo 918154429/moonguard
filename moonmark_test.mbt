@@ -1,3 +1,4 @@
+///|
 test "escape html entities" {
   inspect(
     @moonmark.escape_html("<tag a=\"1\">Tom & Jerry's</tag>"),
@@ -5,6 +6,7 @@ test "escape html entities" {
   )
 }
 
+///|
 test "render plain paragraph" {
   inspect(
     @moonmark.render("hello <moonbit>"),
@@ -12,10 +14,12 @@ test "render plain paragraph" {
   )
 }
 
+///|
 test "ignore all whitespace document" {
   inspect(@moonmark.render("   \n\t"), content="")
 }
 
+///|
 test "render headings and paragraphs" {
   inspect(
     @moonmark.render("# Title\nhello\nworld\n\n## Next"),
@@ -23,6 +27,7 @@ test "render headings and paragraphs" {
   )
 }
 
+///|
 test "limit atx headings to six levels" {
   inspect(
     @moonmark.render("###### Deep\n####### not heading"),
@@ -30,6 +35,7 @@ test "limit atx headings to six levels" {
   )
 }
 
+///|
 test "render unordered list" {
   inspect(
     @moonmark.render("- one\n- two & more\n* three"),
@@ -37,6 +43,7 @@ test "render unordered list" {
   )
 }
 
+///|
 test "separate lists from paragraphs" {
   inspect(
     @moonmark.render("intro\n- item\n\n# Done"),
@@ -44,6 +51,7 @@ test "separate lists from paragraphs" {
   )
 }
 
+///|
 test "render ordered list" {
   inspect(
     @moonmark.render("1. collect\n2. parse <safe>\n10. render"),
@@ -51,6 +59,7 @@ test "render ordered list" {
   )
 }
 
+///|
 test "separate ordered and unordered lists" {
   inspect(
     @moonmark.render("1. first\n- bullet"),
@@ -58,13 +67,23 @@ test "separate ordered and unordered lists" {
   )
 }
 
+///|
 test "render fenced code block" {
   inspect(
     @moonmark.render("```moonbit\nfn main { println(\"<ok>\") }\n```"),
-    content="<pre><code>fn main { println(&quot;&lt;ok&gt;&quot;) }\n</code></pre>\n",
+    content="<pre><code class=\"language-moonbit\">fn main { println(&quot;&lt;ok&gt;&quot;) }\n</code></pre>\n",
   )
 }
 
+///|
+test "ignore unsafe code fence language class" {
+  inspect(
+    @moonmark.render("```moonbit<script>\ncontent\n```"),
+    content="<pre><code>content\n</code></pre>\n",
+  )
+}
+
+///|
 test "close unclosed fenced code at document end" {
   inspect(
     @moonmark.render("```\n# not heading"),
@@ -72,6 +91,7 @@ test "close unclosed fenced code at document end" {
   )
 }
 
+///|
 test "render inline code spans" {
   inspect(
     @moonmark.render("Use `moon test` before `<push>`."),
@@ -79,6 +99,7 @@ test "render inline code spans" {
   )
 }
 
+///|
 test "render inline code in headings and lists" {
   inspect(
     @moonmark.render("## Run `moon`\n- call `render`"),
@@ -86,10 +107,12 @@ test "render inline code in headings and lists" {
   )
 }
 
+///|
 test "escape unmatched backtick" {
   inspect(@moonmark.render("`open"), content="<p>`open</p>\n")
 }
 
+///|
 test "render inline links" {
   inspect(
     @moonmark.render("Read [docs](https://docs.moonbitlang.cn/?q=<x>)."),
@@ -97,13 +120,28 @@ test "render inline links" {
   )
 }
 
-test "escape malformed links as text" {
+///|
+test "render images with escaped attributes" {
   inspect(
-    @moonmark.render("[broken](url"),
-    content="<p>[broken](url</p>\n",
+    @moonmark.render("Logo ![Moon <Bit>](https://example.com/logo?a=\"x\")"),
+    content="<p>Logo <img src=\"https://example.com/logo?a=&quot;x&quot;\" alt=\"Moon &lt;Bit&gt;\" /></p>\n",
   )
 }
 
+///|
+test "render autolinks" {
+  inspect(
+    @moonmark.render("Visit <https://example.com?q=<x>> or <team@example.com>."),
+    content="<p>Visit <a href=\"https://example.com?q=&lt;x\">https://example.com?q=&lt;x</a>&gt; or <a href=\"mailto:team@example.com\">team@example.com</a>.</p>\n",
+  )
+}
+
+///|
+test "escape malformed links as text" {
+  inspect(@moonmark.render("[broken](url"), content="<p>[broken](url</p>\n")
+}
+
+///|
 test "render emphasis and strong text" {
   inspect(
     @moonmark.render("*small* and **important <safe>**"),
@@ -111,9 +149,34 @@ test "render emphasis and strong text" {
   )
 }
 
+///|
 test "keep unmatched emphasis markers" {
   inspect(
     @moonmark.render("*open and **also open"),
     content="<p>*open and **also open</p>\n",
+  )
+}
+
+///|
+test "render thematic breaks" {
+  inspect(
+    @moonmark.render("before\n\n---\n***\n___\nafter"),
+    content="<p>before</p>\n<hr />\n<hr />\n<hr />\n<p>after</p>\n",
+  )
+}
+
+///|
+test "render setext headings" {
+  inspect(
+    @moonmark.render("*Title*\n=====\nSubtitle <safe>\n-----"),
+    content="<h1><em>Title</em></h1>\n<h2>Subtitle &lt;safe&gt;</h2>\n",
+  )
+}
+
+///|
+test "render blockquotes" {
+  inspect(
+    @moonmark.render("> quoted **safe**\n> second line\n\n> <again>"),
+    content="<blockquote>\n<p>quoted <strong>safe</strong> second line</p>\n</blockquote>\n<blockquote>\n<p>&lt;again&gt;</p>\n</blockquote>\n",
   )
 }

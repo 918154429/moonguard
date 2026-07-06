@@ -13,12 +13,12 @@ name = "ccfoss/moonmark"
 
 version = "0.1.0"
 
-readme = "README.mbt.md"
+readme = "README.md"
 
-repository = ""
+repository = "https://github.com/918154429/moonmark"
 
 license = "Apache-2.0"
 
-keywords = []
+keywords = [ "markdown", "html", "renderer", "moonbit", "commonmark" ]
 
-description = ""
+description = "Safe Markdown-to-HTML renderer for the MoonBit ecosystem"

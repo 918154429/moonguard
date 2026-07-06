@@ -1,6 +1,7 @@
-// import {
-//   "ccfoss/moonmark" @lib,
-// }
+import {
+  "ccfoss/moonmark",
+  "moonbitlang/core/env",
+}
 
 options(
   "is-main": true,
