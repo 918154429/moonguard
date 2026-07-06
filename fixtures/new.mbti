@@ -1,0 +1,7 @@
+// Fixture for MoonGuard CLI demos.
+package "ccfoss/demo"
+
+pub fn parse(String) -> Unit
+pub fn render(String, Options) -> String
+pub struct Options {
+pub enum Level

@@ -37,10 +37,16 @@ Implemented capabilities:
 - Detect removed public API as `major`.
 - Detect changed public signatures as `major`.
 - Render Markdown compatibility reports.
-- Provide a small CLI demo command:
+- Provide file-based CLI comparison on the JS backend:
 
 ```sh
-moon run cmd/main -- report "pub fn old() -> Unit" "pub fn new() -> Unit"
+moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti
+```
+
+- Preserve a text-only CLI demo command:
+
+```sh
+moon run cmd/main -- report-text "pub fn old() -> Unit" "pub fn new() -> Unit"
 ```
 
 ## Architecture
@@ -56,6 +62,10 @@ being validated:
   - Markdown report renderer
 - `cmd/main/main.mbt`
   - CLI demo entry point
+- `cmd/main/read_file_js.mbt`
+  - JS backend file reading through Node `fs.readFileSync`
+- `cmd/main/read_file_nonjs.mbt`
+  - clear fallback message for non-JS backends
 - `moonguard_test.mbt`
   - black-box behavior tests
 - `moonguard_wbtest.mbt`
@@ -93,6 +103,8 @@ Current tests cover:
 - changed signature detection;
 - unchanged API as patch;
 - Markdown report rendering;
+- CLI argument handling;
+- JS-target file CLI smoke test;
 - unknown public declaration retention.
 
 Validation commands:
@@ -103,18 +115,18 @@ moon info
 moon check
 moon test
 moon run cmd/main -- --version
+moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti
 ```
 
 Current local result:
 
 ```text
-Total tests: 8, passed: 8, failed: 0.
+Total tests: 12, passed: 12, failed: 0.
 ```
 
 ## Known Limits
 
-- File-based CLI input is not implemented yet. The current CLI accepts two
-  interface snapshots as arguments.
+- File-based CLI input currently requires the JS backend and Node runtime.
 - Parser coverage is still line-oriented and does not yet model nested enum
   constructors or struct fields.
 - JSON report output is planned but not implemented in the MVP.
@@ -124,7 +136,7 @@ Total tests: 8, passed: 8, failed: 0.
 
 Near-term work:
 
-- Add file input support for CLI.
+- Add native file input support when a stable MoonBit file IO path is available.
 - Split implementation into parser, model, diff, semver, report, and CLI
   modules.
 - Add fixtures based on generated `.mbti` files.

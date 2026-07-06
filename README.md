@@ -21,7 +21,7 @@ engineering infrastructure for package authors and CI workflows.
   - unchanged public API -> patch
 - Render a Markdown compatibility report suitable for PR comments or release
   notes.
-- Provide a small CLI demo path.
+- Read `.mbti` files from the CLI when running on the JS backend.
 
 ## Installation
 
@@ -48,10 +48,10 @@ The report recommendation is `patch`, `minor`, or `major`.
 
 ## CLI Usage
 
-The MVP CLI accepts two interface snapshots as arguments:
+Compare two `.mbti` files:
 
 ```sh
-moon run cmd/main -- report "pub fn render(String) -> String" "pub fn render(String, Options) -> String"
+moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti
 ```
 
 Output:
@@ -60,15 +60,22 @@ Output:
 # MoonGuard API Compatibility Report
 
 - Recommendation: **major**
-- Changes: 1
+- Changes: 2
 
 | Impact | Change | Symbol | Details |
 | --- | --- | --- | --- |
 | major | changed | `fn render` | `render(String) -> String` -> `render(String, Options) -> String` |
+| minor | added | `fn parse` | `parse(String) -> Unit` |
 ```
 
-File-based CLI input is planned after the project settles on the portable
-MoonBit file IO path for the current toolchain.
+The file-reading command currently requires the JS backend because the MVP uses
+Node `fs.readFileSync` through a MoonBit JS extern.
+
+For quick demos without files, use `report-text`:
+
+```sh
+moon run cmd/main -- report-text "pub fn render(String) -> String" "pub fn render(String, Options) -> String"
+```
 
 ## Compatibility Rules
 
@@ -93,6 +100,7 @@ moon info
 moon fmt
 moon check
 moon test
+moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti
 ```
 
 Generated `pkg.generated.mbti` files are kept in the repository so interface

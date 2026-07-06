@@ -33,6 +33,9 @@ jobs:
       - name: Test
         run: moon test
 
+      - name: CLI smoke test
+        run: moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti
+
       - name: Format check
         run: |
           moon fmt

@@ -5,4 +5,8 @@ import {
 
 options(
   "is-main": true,
+  targets: {
+    "read_file_js.mbt": [ "js" ],
+    "read_file_nonjs.mbt": [ "not", "js" ],
+  },
 )
