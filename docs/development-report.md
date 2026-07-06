@@ -32,6 +32,9 @@ Implemented capabilities:
 - Normalize whitespace and declaration order.
 - Track public `fn`, `type`, `typealias`, `struct`, `enum`, `trait`, `impl`,
   `let`, and `const` declarations.
+- Track generated `.mbti` nested public surface such as struct fields, enum
+  constructors, trait methods, generic methods, `suberror`, and `pub using`
+  exports.
 - Preserve unrecognized public declarations as `unknown`.
 - Detect added public API as `minor`.
 - Detect removed public API as `major`.
@@ -96,6 +99,8 @@ first-class support for that syntax.
 Current tests cover:
 
 - parsing public functions, structs, enums, traits, and aliases;
+- parsing generic functions, methods, impls, struct fields, enum constructors,
+  trait methods, `suberror`, and `pub using`;
 - whitespace normalization;
 - trailing comment stripping;
 - added API detection;
@@ -121,14 +126,14 @@ moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti
 Current local result:
 
 ```text
-Total tests: 12, passed: 12, failed: 0.
+Total tests: 19, passed: 19, failed: 0.
 ```
 
 ## Known Limits
 
 - File-based CLI input currently requires the JS backend and Node runtime.
-- Parser coverage is still line-oriented and does not yet model nested enum
-  constructors or struct fields.
+- Parser coverage is still line-oriented and intentionally focused on generated
+  `.mbti` shapes rather than full MoonBit source syntax.
 - JSON report output is planned but not implemented in the MVP.
 - Directory/package-level comparison is planned but not implemented in the MVP.
 

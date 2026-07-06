@@ -38,6 +38,8 @@ Current impact rules:
 - Removed public API -> `major`
 - Changed public signature -> `major`
 - No public API model change -> `patch`
+- Nested public surface such as struct fields, enum constructors, trait methods,
+  and suberror constructors use the same rules.
 
 ## Implemented Capabilities
 
@@ -95,7 +97,7 @@ Fixtures:
 Current local result:
 
 ```text
-Total tests: 12, passed: 12, failed: 0.
+Total tests: 19, passed: 19, failed: 0.
 ```
 
 GitHub Actions:
@@ -126,8 +128,8 @@ gh run list --repo 918154429/moonguard --limit 5
 ## Current Limitations
 
 - Parser is line-oriented and intentionally conservative.
-- It tracks public declaration lines but does not yet model nested struct
-  fields or enum constructors as separate API elements.
+- It now models common generated `.mbti` nested members, but it is still not a
+  full MoonBit source parser.
 - JSON report output is not implemented.
 - Native file input is not implemented; file mode is JS target only.
 - Exit codes are not yet expressive. The CLI prints reports/errors, but does
@@ -136,32 +138,23 @@ gh run list --repo 918154429/moonguard --limit 5
 
 ## Recommended Next Slice
 
-The strongest next slice is parser coverage for real `.mbti` shapes.
+The strongest next slice is CI-oriented behavior and machine-readable output.
 
 Recommended scope:
 
-- Parse public struct fields as API items.
-- Parse enum constructors as API items.
-- Parse methods and trait methods with stable names.
-- Add fixtures that resemble generated `pkg.generated.mbti`.
-- Add golden tests for removals and signature changes in those nested members.
+- Add `--format markdown|json`.
+- Add JSON report output for machine consumption.
+- Add a `check` command that exits non-zero for `major` recommendations.
+- Document a GitHub Actions usage snippet.
 
 Why this next:
 
 - File-based CLI is already usable.
-- Wider parser coverage makes the project look less like a toy and more like a
-  MoonBit ecosystem tool.
-- It supports the competition claim of API compatibility checking better than
-  adding more report formats immediately.
+- Parser coverage now handles common generated interface shapes.
+- JSON and check mode make the tool easier to wire into CI and downstream
+  tooling.
 
-Second priority:
-
-- Add `--format markdown|json`.
-- Add JSON report output for machine consumption.
-
-Third priority:
-
-- Add CI-oriented check mode:
+Suggested check mode:
 
 ```sh
 moon run --target js cmd/main -- check old.mbti new.mbti

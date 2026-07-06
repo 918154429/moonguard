@@ -1,8 +1,7 @@
-// Fixture for MoonGuard CLI demos.
+// Directory comparison fixture.
 package "ccfoss/demo"
 
 pub fn render(String) -> String
 pub struct Options {
-}
-pub enum Level {
+  mode : String
 }

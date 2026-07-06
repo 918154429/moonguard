@@ -1,0 +1,4 @@
+// Recursive directory comparison fixture.
+package "ccfoss/demo/cmd"
+
+pub fn main() -> Unit

@@ -39,18 +39,86 @@ pub struct ApiReport {
 /// Parse a MoonBit interface file into a normalized public API list.
 pub fn parse_interface(text : String) -> Array[ApiItem] {
   let items : Array[ApiItem] = []
+  let mut container_kind = ""
+  let mut container_name = ""
+  let mut pending_attributes : Array[String] = []
   for raw_line in split_lines(text[:]) {
     let line = normalize_space(strip_comment(raw_line).trim())
-    if line.length() == 0 || !is_public_line(line[:]) {
+    if line.length() == 0 {
+      pending_attributes = []
       continue
     }
-    match parse_public_item(line[:]) {
-      Some(item) => items.push(item)
+    if line.has_prefix("#") {
+      pending_attributes.push(line)
+      continue
+    }
+    if container_kind.length() > 0 {
+      if line.has_prefix("}") {
+        for item in parse_closing_derives(container_name, line[:]) {
+          items.push(item)
+        }
+        container_kind = ""
+        container_name = ""
+        pending_attributes = []
+        continue
+      }
+      if !is_public_line(line[:]) {
+        match
+          parse_container_item(
+            container_kind,
+            container_name,
+            line[:],
+            pending_attributes,
+          ) {
+          Some(item) => items.push(item)
+          None => ()
+        }
+        pending_attributes = []
+        continue
+      }
+      container_kind = ""
+      container_name = ""
+    }
+    if !is_public_line(line[:]) {
+      pending_attributes = []
+      continue
+    }
+    match parse_public_item(line[:], pending_attributes) {
+      Some(item) => {
+        if opens_public_container(item.kind, line[:]) {
+          container_kind = item.kind
+          container_name = item.name
+        }
+        items.push(item)
+      }
       None => ()
     }
+    pending_attributes = []
   }
   sort_items(items)
   items
+}
+
+///|
+/// Parse a MoonBit interface file and namespace every public API name.
+pub fn parse_interface_with_namespace(
+  text : String,
+  scope : String,
+) -> Array[ApiItem] {
+  let items = parse_interface(text)
+  if scope.length() == 0 {
+    return items
+  }
+  let namespaced : Array[ApiItem] = []
+  for item in items {
+    namespaced.push({
+      kind: item.kind,
+      name: "\{scope}::\{item.name}",
+      signature: item.signature,
+    })
+  }
+  sort_items(namespaced)
+  namespaced
 }
 
 ///|
@@ -96,7 +164,7 @@ pub fn diff_items(
       None =>
         changes.push({
           kind: Added,
-          impact: Minor,
+          impact: added_impact(new_item.kind),
           item_kind: new_item.kind,
           name: new_item.name,
           old_signature: None,
@@ -106,6 +174,15 @@ pub fn diff_items(
   }
   sort_changes(changes)
   { changes, recommendation: recommended_impact(changes) }
+}
+
+///|
+fn added_impact(kind : String) -> Impact {
+  if kind == "field" || kind == "constructor" || kind == "trait-method" {
+    Major
+  } else {
+    Minor
+  }
 }
 
 ///|
@@ -147,40 +224,399 @@ pub fn semver_recommendation(old_text : String, new_text : String) -> String {
 }
 
 ///|
-fn parse_public_item(line : StringView) -> ApiItem? {
+fn parse_public_item(line : StringView, attributes : Array[String]) -> ApiItem? {
   let public_body = public_body(line)
+  let visibility = public_visibility(line)
   if public_body.length() == 0 {
     return None
   }
   if public_body.has_prefix("fn ") {
-    Some(make_item("fn", public_body.view(start_offset=3)))
+    Some(
+      make_item_with_visibility(
+        "fn",
+        public_body.view(start_offset=3),
+        visibility,
+        attributes,
+      ),
+    )
+  } else if public_body.has_prefix("fn[") {
+    Some(
+      make_item_with_visibility(
+        "fn",
+        public_body.view(start_offset=2),
+        visibility,
+        attributes,
+      ),
+    )
   } else if public_body.has_prefix("async fn ") {
-    Some(make_item("fn", public_body.view(start_offset=9)))
+    Some(make_item_with_visibility("fn", public_body, visibility, attributes))
+  } else if public_body.has_prefix("async fn[") {
+    Some(make_item_with_visibility("fn", public_body, visibility, attributes))
   } else if public_body.has_prefix("typealias ") {
-    Some(make_item("typealias", public_body.view(start_offset=10)))
+    Some(
+      make_item_with_visibility(
+        "typealias",
+        public_body.view(start_offset=10),
+        visibility,
+        attributes,
+      ),
+    )
   } else if public_body.has_prefix("type ") {
-    Some(make_item("type", public_body.view(start_offset=5)))
+    Some(
+      make_item_with_visibility(
+        "type",
+        public_body.view(start_offset=5),
+        visibility,
+        attributes,
+      ),
+    )
   } else if public_body.has_prefix("struct ") {
-    Some(make_item("struct", public_body.view(start_offset=7)))
+    Some(
+      make_item_with_visibility(
+        "struct",
+        public_body.view(start_offset=7),
+        visibility,
+        attributes,
+      ),
+    )
   } else if public_body.has_prefix("enum ") {
-    Some(make_item("enum", public_body.view(start_offset=5)))
+    Some(
+      make_item_with_visibility(
+        "enum",
+        public_body.view(start_offset=5),
+        visibility,
+        attributes,
+      ),
+    )
   } else if public_body.has_prefix("trait ") {
-    Some(make_item("trait", public_body.view(start_offset=6)))
+    Some(
+      make_item_with_visibility(
+        "trait",
+        public_body.view(start_offset=6),
+        visibility,
+        attributes,
+      ),
+    )
   } else if public_body.has_prefix("impl ") {
-    Some(make_item("impl", public_body.view(start_offset=5)))
+    Some(
+      make_impl_item(public_body.view(start_offset=5), visibility, attributes),
+    )
+  } else if public_body.has_prefix("impl[") {
+    Some(
+      make_impl_item(public_body.view(start_offset=4), visibility, attributes),
+    )
   } else if public_body.has_prefix("let ") {
-    Some(make_item("let", public_body.view(start_offset=4)))
+    Some(
+      make_item_with_visibility(
+        "let",
+        public_body.view(start_offset=4),
+        visibility,
+        attributes,
+      ),
+    )
   } else if public_body.has_prefix("const ") {
-    Some(make_item("const", public_body.view(start_offset=6)))
+    Some(
+      make_item_with_visibility(
+        "const",
+        public_body.view(start_offset=6),
+        visibility,
+        attributes,
+      ),
+    )
+  } else if public_body.has_prefix("suberror ") {
+    Some(
+      make_item_with_visibility(
+        "suberror",
+        public_body.view(start_offset=9),
+        visibility,
+        attributes,
+      ),
+    )
+  } else if public_body.has_prefix("using ") {
+    Some(
+      make_using_item(public_body.view(start_offset=6), visibility, attributes),
+    )
   } else {
-    Some(make_item("unknown", public_body))
+    Some(make_unknown_item(public_body, visibility, attributes))
   }
 }
 
 ///|
-fn make_item(kind : String, body : StringView) -> ApiItem {
+fn make_item_with_visibility(
+  kind : String,
+  body : StringView,
+  visibility : String,
+  attributes : Array[String],
+) -> ApiItem {
   let signature = normalize_signature(body)
-  { kind, name: extract_name(signature[:]), signature }
+  {
+    kind,
+    name: extract_name(signature[:]),
+    signature: apply_attributes(
+      apply_visibility(signature, visibility),
+      attributes,
+    ),
+  }
+}
+
+///|
+fn make_named_item_with_attributes(
+  kind : String,
+  name : String,
+  body : StringView,
+  attributes : Array[String],
+) -> ApiItem {
+  {
+    kind,
+    name,
+    signature: apply_attributes(normalize_signature(body), attributes),
+  }
+}
+
+///|
+fn make_impl_item(
+  body : StringView,
+  visibility : String,
+  attributes : Array[String],
+) -> ApiItem {
+  let signature = normalize_signature(body)
+  let name = trim_leading_generic_params(signature[:]).to_owned()
+  {
+    kind: "impl",
+    name,
+    signature: apply_attributes(
+      apply_visibility(signature, visibility),
+      attributes,
+    ),
+  }
+}
+
+///|
+fn make_using_item(
+  body : StringView,
+  visibility : String,
+  attributes : Array[String],
+) -> ApiItem {
+  let signature = normalize_signature(body)
+  {
+    kind: "using",
+    name: extract_using_name(signature[:]),
+    signature: apply_attributes(
+      apply_visibility(signature, visibility),
+      attributes,
+    ),
+  }
+}
+
+///|
+fn make_unknown_item(
+  body : StringView,
+  visibility : String,
+  attributes : Array[String],
+) -> ApiItem {
+  let signature = normalize_signature(body)
+  {
+    kind: "unknown",
+    name: signature,
+    signature: apply_attributes(
+      apply_visibility(signature, visibility),
+      attributes,
+    ),
+  }
+}
+
+///|
+fn parse_container_item(
+  kind : String,
+  parent : String,
+  line : StringView,
+  attributes : Array[String],
+) -> ApiItem? {
+  if line.has_prefix("#") || line.has_prefix("priv ") {
+    return None
+  }
+  if kind == "struct" {
+    parse_struct_field(parent, line, attributes)
+  } else if kind == "enum" || kind == "suberror" {
+    parse_constructor(parent, line, attributes)
+  } else if kind == "trait" {
+    parse_trait_method(parent, line, attributes)
+  } else {
+    None
+  }
+}
+
+///|
+fn parse_struct_field(
+  parent : String,
+  line : StringView,
+  attributes : Array[String],
+) -> ApiItem? {
+  match line.find(":") {
+    Some(_) => {
+      let field_name = extract_field_name(line)
+      if field_name.length() == 0 {
+        None
+      } else {
+        Some(
+          make_named_item_with_attributes(
+            "field",
+            "\{parent}.\{field_name}",
+            line,
+            attributes,
+          ),
+        )
+      }
+    }
+    None => None
+  }
+}
+
+///|
+fn parse_constructor(
+  parent : String,
+  line : StringView,
+  attributes : Array[String],
+) -> ApiItem? {
+  let signature = normalize_signature(line)
+  if signature.length() == 0 {
+    None
+  } else {
+    let name = extract_name(signature[:])
+    if name.length() == 0 {
+      None
+    } else {
+      Some({
+        kind: "constructor",
+        name: "\{parent}.\{name}",
+        signature: apply_attributes(signature, attributes),
+      })
+    }
+  }
+}
+
+///|
+fn parse_closing_derives(parent : String, line : StringView) -> Array[ApiItem] {
+  let items : Array[ApiItem] = []
+  match derive_body(line) {
+    Some(body) =>
+      for trait_name in split_top_level_commas(body) {
+        let trait_name = trait_name.trim()
+        if trait_name.length() > 0 {
+          let signature = "derive(\{normalize_signature(trait_name)})"
+          items.push({
+            kind: "derive",
+            name: "\{parent}.\{normalize_signature(trait_name)}",
+            signature,
+          })
+        }
+      }
+    None => ()
+  }
+  items
+}
+
+///|
+fn derive_body(line : StringView) -> StringView? {
+  match line.find("derive(") {
+    Some(start) => {
+      let body_start = start + 7
+      let mut depth = 1
+      for i in body_start..<line.length() {
+        let ch = line.unsafe_get(i).unsafe_to_char()
+        if ch == '(' {
+          depth += 1
+        } else if ch == ')' {
+          depth -= 1
+          if depth == 0 {
+            return Some(line.view(start_offset=body_start, end_offset=i).trim())
+          }
+        }
+      }
+      None
+    }
+    None => None
+  }
+}
+
+///|
+fn split_top_level_commas(text : StringView) -> Array[StringView] {
+  let parts : Array[StringView] = []
+  let mut start = 0
+  let mut round_depth = 0
+  let mut square_depth = 0
+  for i in 0..<text.length() {
+    let ch = text.unsafe_get(i).unsafe_to_char()
+    if ch == '(' {
+      round_depth += 1
+    } else if ch == ')' {
+      round_depth -= 1
+    } else if ch == '[' {
+      square_depth += 1
+    } else if ch == ']' {
+      square_depth -= 1
+    } else if ch == ',' && round_depth == 0 && square_depth == 0 {
+      parts.push(text.view(start_offset=start, end_offset=i))
+      start = i + 1
+    }
+  }
+  parts.push(text.view(start_offset=start, end_offset=text.length()))
+  parts
+}
+
+///|
+fn parse_trait_method(
+  parent : String,
+  line : StringView,
+  attributes : Array[String],
+) -> ApiItem? {
+  if line.has_prefix("fn ") {
+    Some(make_trait_method(parent, line.view(start_offset=3), attributes))
+  } else if line.has_prefix("fn[") {
+    Some(make_trait_method(parent, line.view(start_offset=2), attributes))
+  } else if line.has_prefix("async fn ") || line.has_prefix("async fn[") {
+    Some(make_trait_method(parent, line, attributes))
+  } else {
+    None
+  }
+}
+
+///|
+fn make_trait_method(
+  parent : String,
+  body : StringView,
+  attributes : Array[String],
+) -> ApiItem {
+  let signature = normalize_signature(body)
+  let name = extract_name(signature[:])
+  {
+    kind: "trait-method",
+    name: "\{parent}.\{name}",
+    signature: apply_attributes(signature, attributes),
+  }
+}
+
+///|
+fn opens_public_container(kind : String, line : StringView) -> Bool {
+  (kind == "struct" || kind == "enum" || kind == "trait" || kind == "suberror") &&
+  has_open_brace(line) &&
+  !has_close_brace(line)
+}
+
+///|
+fn has_open_brace(line : StringView) -> Bool {
+  match line.find("{") {
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
+fn has_close_brace(line : StringView) -> Bool {
+  match line.find("}") {
+    Some(_) => true
+    None => false
+  }
 }
 
 ///|
@@ -197,6 +633,43 @@ fn public_body(line : StringView) -> StringView {
 }
 
 ///|
+fn public_visibility(line : StringView) -> String {
+  if line.has_prefix("pub(all) ") {
+    "pub(all)"
+  } else if line.has_prefix("pub(open) ") {
+    "pub(open)"
+  } else {
+    "pub"
+  }
+}
+
+///|
+fn apply_visibility(signature : String, visibility : String) -> String {
+  if visibility == "pub" {
+    signature
+  } else {
+    "\{visibility} \{signature}"
+  }
+}
+
+///|
+fn apply_attributes(signature : String, attributes : Array[String]) -> String {
+  if attributes.is_empty() {
+    return signature
+  }
+  let out = StringBuilder()
+  for attribute in attributes {
+    if !out.is_empty() {
+      out.write(" ")
+    }
+    out.write(attribute)
+  }
+  out.write(" ")
+  out.write(signature)
+  out.to_string()
+}
+
+///|
 fn is_public_line(line : StringView) -> Bool {
   line.has_prefix("pub ") ||
   line.has_prefix("pub(all) ") ||
@@ -205,20 +678,120 @@ fn is_public_line(line : StringView) -> Bool {
 
 ///|
 fn normalize_signature(text : StringView) -> String {
-  normalize_space(text.trim())
+  let signature = normalize_space(text.trim())
+  if signature.length() > 0 &&
+    signature.unsafe_get(signature.length() - 1).unsafe_to_char() == '{' {
+    signature[:signature.length() - 1].trim().to_owned()
+  } else {
+    signature
+  }
 }
 
 ///|
 fn extract_name(signature : StringView) -> String {
+  let signature = trim_callable_prefix(signature)
   let mut end = 0
   while end < signature.length() {
     let ch = signature.unsafe_get(end).unsafe_to_char()
+    if ch == ':' &&
+      end + 1 < signature.length() &&
+      signature.unsafe_get(end + 1).unsafe_to_char() == ':' {
+      end += 2
+      continue
+    }
     if is_name_boundary(ch) {
       break
     }
     end += 1
   }
   signature.view(start_offset=0, end_offset=end).to_owned()
+}
+
+///|
+fn trim_callable_prefix(signature : StringView) -> StringView {
+  let signature = signature.trim()
+  if signature.has_prefix("async fn ") {
+    trim_leading_generic_params(signature.view(start_offset=9))
+  } else if signature.has_prefix("async fn[") {
+    trim_leading_generic_params(signature.view(start_offset=8))
+  } else if signature.has_prefix("fn ") {
+    trim_leading_generic_params(signature.view(start_offset=3))
+  } else if signature.has_prefix("fn[") {
+    trim_leading_generic_params(signature.view(start_offset=2))
+  } else {
+    trim_leading_generic_params(signature)
+  }
+}
+
+///|
+fn trim_leading_generic_params(text : StringView) -> StringView {
+  let text = text.trim()
+  if !text.has_prefix("[") {
+    return text
+  }
+  let mut depth = 0
+  for i in 0..<text.length() {
+    let ch = text.unsafe_get(i).unsafe_to_char()
+    if ch == '[' {
+      depth += 1
+    } else if ch == ']' {
+      depth -= 1
+      if depth == 0 {
+        return text.view(start_offset=i + 1).trim()
+      }
+    }
+  }
+  text
+}
+
+///|
+fn extract_field_name(line : StringView) -> String {
+  let head = match line.find(":") {
+    Some(index) => line.view(start_offset=0, end_offset=index).trim()
+    None => line.trim()
+  }
+  let head = if head.has_prefix("mut ") {
+    head.view(start_offset=4).trim()
+  } else {
+    head
+  }
+  extract_name(head)
+}
+
+///|
+fn extract_using_name(signature : StringView) -> String {
+  match brace_body(signature) {
+    Some(body) =>
+      match body.find(" as ") {
+        Some(index) => extract_name(body.view(start_offset=index + 4).trim())
+        None => {
+          let body = if body.has_prefix("type ") {
+            body.view(start_offset=5).trim()
+          } else {
+            body
+          }
+          extract_name(body)
+        }
+      }
+    None => extract_name(signature)
+  }
+}
+
+///|
+fn brace_body(text : StringView) -> StringView? {
+  match text.find("{") {
+    Some(start) =>
+      match text.find("}") {
+        Some(end) =>
+          if end > start {
+            Some(text.view(start_offset=start + 1, end_offset=end).trim())
+          } else {
+            None
+          }
+        None => None
+      }
+    None => None
+  }
 }
 
 ///|
@@ -233,18 +806,55 @@ fn is_name_boundary(ch : Char) -> Bool {
 
 ///|
 fn strip_comment(line : StringView) -> StringView {
-  match line.find("//") {
-    Some(index) => line.view(start_offset=0, end_offset=index)
-    None => line
+  let mut in_string = false
+  let mut escaped = false
+  let mut i = 0
+  while i < line.length() {
+    let ch = line.unsafe_get(i).unsafe_to_char()
+    if in_string {
+      if escaped {
+        escaped = false
+      } else if ch == '\\' {
+        escaped = true
+      } else if ch == '"' {
+        in_string = false
+      }
+    } else if ch == '"' {
+      in_string = true
+    } else if ch == '/' &&
+      i + 1 < line.length() &&
+      line.unsafe_get(i + 1).unsafe_to_char() == '/' {
+      return line.view(start_offset=0, end_offset=i)
+    }
+    i += 1
   }
+  line
 }
 
 ///|
 fn normalize_space(text : StringView) -> String {
   let out = StringBuilder(size_hint=text.length())
   let mut saw_space = false
+  let mut in_string = false
+  let mut escaped = false
   for ch in text {
-    if is_ascii_space(ch.to_int()) {
+    if in_string {
+      out.write_char(ch)
+      if escaped {
+        escaped = false
+      } else if ch == '\\' {
+        escaped = true
+      } else if ch == '"' {
+        in_string = false
+      }
+    } else if ch == '"' {
+      if saw_space && !out.is_empty() {
+        out.write(" ")
+      }
+      out.write_char(ch)
+      saw_space = false
+      in_string = true
+    } else if is_ascii_space(ch.to_int()) {
       saw_space = true
     } else {
       if saw_space && !out.is_empty() {

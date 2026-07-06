@@ -56,8 +56,28 @@ test "report-text changed signature recommends major" {
 }
 
 ///|
+test "report-dir explains non-js backend requirement" {
+  inspect(
+    run_args(["moonguard", "report-dir", "old-dir", "new-dir"]),
+    content="error: cannot list old interface directory 'old-dir': directory input currently requires the JS backend; run with `moon run --target js cmd/main -- report-dir old_dir new_dir`",
+  )
+}
+
+///|
+test "run_args ignores js process argv prefix for report-dir" {
+  inspect(
+    run_args([
+      "node", "_build/default/js/release/build/cmd/main/main.js", "report-dir", "old-dir",
+      "new-dir",
+    ]),
+    content="error: cannot list old interface directory 'old-dir': directory input currently requires the JS backend; run with `moon run --target js cmd/main -- report-dir old_dir new_dir`",
+  )
+}
+
+///|
 test "help mentions file and text modes" {
   let help = run_args(["moonguard", "--help"])
   assert_true(help.contains("report old.mbti new.mbti"))
+  assert_true(help.contains("report-dir old_dir new_dir"))
   assert_true(help.contains("report-text"))
 }

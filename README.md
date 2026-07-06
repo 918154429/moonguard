@@ -14,6 +14,9 @@ engineering infrastructure for package authors and CI workflows.
 - Normalize whitespace and declaration order.
 - Track public `fn`, `type`, `typealias`, `struct`, `enum`, `trait`, `impl`,
   `let`, and `const` declarations.
+- Track common generated `.mbti` members including struct fields, enum
+  constructors, trait methods, generic methods, `suberror`, and `pub using`
+  exports.
 - Classify public API changes:
   - added public API -> minor
   - removed public API -> major
@@ -87,7 +90,8 @@ MoonGuard starts with conservative rules:
 - Reordering declarations, changing comments, or changing whitespace does not
   affect the public API model.
 
-The parser intentionally covers high-frequency `.mbti` declarations first. Any
+The parser intentionally covers high-frequency `.mbti` declarations first,
+including common nested members from generated interface files. Any
 unrecognized `pub` line is retained as `unknown` so that public surface changes
 remain visible instead of being silently ignored.
 

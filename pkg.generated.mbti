@@ -12,6 +12,8 @@ pub fn diff_items(Array[ApiItem], Array[ApiItem]) -> ApiReport
 
 pub fn parse_interface(String) -> Array[ApiItem]
 
+pub fn parse_interface_with_namespace(String, String) -> Array[ApiItem]
+
 pub fn render_markdown_report(ApiReport) -> String
 
 pub fn semver_recommendation(String, String) -> String
