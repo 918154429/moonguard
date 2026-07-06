@@ -247,6 +247,28 @@ pub fn render_markdown_report(report : ApiReport) -> String {
 }
 
 ///|
+/// Render a machine-readable JSON compatibility report.
+pub fn render_json_report(report : ApiReport) -> String {
+  let out = StringBuilder()
+  out.write("{\n")
+  write_json_string_field(
+    out,
+    "recommendation",
+    impact_label(report.recommendation),
+    2,
+  )
+  out.write(",\n")
+  write_json_number_field(out, "change_count", report.changes.length(), 2)
+  out.write(",\n")
+  write_json_summary_field(out, report, 2)
+  out.write(",\n")
+  write_json_changes_field(out, report.changes, 2)
+  out.write("\n")
+  out.write("}\n")
+  out.to_string()
+}
+
+///|
 pub fn semver_recommendation(old_text : String, new_text : String) -> String {
   impact_label(diff_interfaces(old_text, new_text).recommendation)
 }
@@ -1121,6 +1143,222 @@ fn change_details(change : ApiChange) -> String {
       }
       "`\{old_text}` -> `\{new_text}`"
     }
+  }
+}
+
+///|
+fn write_json_summary_field(
+  out : StringBuilder,
+  report : ApiReport,
+  indent : Int,
+) -> Unit {
+  write_json_indent(out, indent)
+  out.write("\"summary\": {\n")
+  write_json_number_field(
+    out,
+    "major",
+    count_changes_by_impact(report.changes, Major),
+    indent + 2,
+  )
+  out.write(",\n")
+  write_json_number_field(
+    out,
+    "minor",
+    count_changes_by_impact(report.changes, Minor),
+    indent + 2,
+  )
+  out.write(",\n")
+  write_json_number_field(
+    out,
+    "patch",
+    count_changes_by_impact(report.changes, Patch),
+    indent + 2,
+  )
+  out.write("\n")
+  write_json_indent(out, indent)
+  out.write("}")
+}
+
+///|
+fn write_json_changes_field(
+  out : StringBuilder,
+  changes : Array[ApiChange],
+  indent : Int,
+) -> Unit {
+  write_json_indent(out, indent)
+  out.write("\"changes\": [")
+  if changes.is_empty() {
+    out.write("]")
+    return
+  }
+  out.write("\n")
+  for i in 0..<changes.length() {
+    if i > 0 {
+      out.write(",\n")
+    }
+    write_json_change(out, changes[i], indent + 2)
+  }
+  out.write("\n")
+  write_json_indent(out, indent)
+  out.write("]")
+}
+
+///|
+fn write_json_change(
+  out : StringBuilder,
+  change : ApiChange,
+  indent : Int,
+) -> Unit {
+  write_json_indent(out, indent)
+  out.write("{\n")
+  write_json_string_field(
+    out,
+    "kind",
+    change_kind_label(change.kind),
+    indent + 2,
+  )
+  out.write(",\n")
+  write_json_string_field(
+    out,
+    "impact",
+    impact_label(change.impact),
+    indent + 2,
+  )
+  out.write(",\n")
+  write_json_string_field(out, "item_kind", change.item_kind, indent + 2)
+  out.write(",\n")
+  write_json_string_field(out, "name", change.name, indent + 2)
+  out.write(",\n")
+  write_json_optional_string_field(
+    out,
+    "old_signature",
+    change.old_signature,
+    indent + 2,
+  )
+  out.write(",\n")
+  write_json_optional_string_field(
+    out,
+    "new_signature",
+    change.new_signature,
+    indent + 2,
+  )
+  out.write("\n")
+  write_json_indent(out, indent)
+  out.write("}")
+}
+
+///|
+fn write_json_string_field(
+  out : StringBuilder,
+  key : String,
+  value : String,
+  indent : Int,
+) -> Unit {
+  write_json_indent(out, indent)
+  write_json_string(out, key)
+  out.write(": ")
+  write_json_string(out, value)
+}
+
+///|
+fn write_json_optional_string_field(
+  out : StringBuilder,
+  key : String,
+  value : String?,
+  indent : Int,
+) -> Unit {
+  write_json_indent(out, indent)
+  write_json_string(out, key)
+  out.write(": ")
+  match value {
+    Some(text) => write_json_string(out, text)
+    None => out.write("null")
+  }
+}
+
+///|
+fn write_json_number_field(
+  out : StringBuilder,
+  key : String,
+  value : Int,
+  indent : Int,
+) -> Unit {
+  write_json_indent(out, indent)
+  write_json_string(out, key)
+  out.write(": ")
+  out.write(value.to_string())
+}
+
+///|
+fn write_json_string(out : StringBuilder, text : String) -> Unit {
+  out.write("\"")
+  out.write(escape_json_string(text))
+  out.write("\"")
+}
+
+///|
+fn write_json_indent(out : StringBuilder, indent : Int) -> Unit {
+  for _ in 0..<indent {
+    out.write(" ")
+  }
+}
+
+///|
+fn count_changes_by_impact(changes : Array[ApiChange], impact : Impact) -> Int {
+  let mut count = 0
+  for change in changes {
+    if change.impact == impact {
+      count += 1
+    }
+  }
+  count
+}
+
+///|
+fn escape_json_string(text : String) -> String {
+  let out = StringBuilder(size_hint=text.length())
+  for ch in text {
+    if ch == '"' {
+      out.write("\\\"")
+    } else if ch == '\\' {
+      out.write("\\\\")
+    } else if ch == '\n' {
+      out.write("\\n")
+    } else if ch == '\r' {
+      out.write("\\r")
+    } else if ch == '\t' {
+      out.write("\\t")
+    } else if ch.to_int() < 32 {
+      out.write("\\u00")
+      out.write(hex_digit(ch.to_int() / 16))
+      out.write(hex_digit(ch.to_int() % 16))
+    } else {
+      out.write_char(ch)
+    }
+  }
+  out.to_string()
+}
+
+///|
+fn hex_digit(value : Int) -> String {
+  match value {
+    0 => "0"
+    1 => "1"
+    2 => "2"
+    3 => "3"
+    4 => "4"
+    5 => "5"
+    6 => "6"
+    7 => "7"
+    8 => "8"
+    9 => "9"
+    10 => "a"
+    11 => "b"
+    12 => "c"
+    13 => "d"
+    14 => "e"
+    15 => "f"
+    _ => "0"
   }
 }
 

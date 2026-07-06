@@ -298,6 +298,133 @@ test "render markdown report" {
 }
 
 ///|
+test "render json report for unchanged api" {
+  let report = @moonguard.diff_interfaces(
+    (
+      #|pub fn render(String) -> String
+    ),
+    (
+      #|pub fn render(String) -> String
+    ),
+  )
+  inspect(
+    @moonguard.render_json_report(report),
+    content=(
+      #|{
+      #|  "recommendation": "patch",
+      #|  "change_count": 0,
+      #|  "summary": {
+      #|    "major": 0,
+      #|    "minor": 0,
+      #|    "patch": 0
+      #|  },
+      #|  "changes": []
+      #|}
+      #|
+    ),
+  )
+}
+
+///|
+test "render json report includes changed and added fields" {
+  let report = @moonguard.diff_interfaces(
+    (
+      #|pub fn render(String) -> String
+    ),
+    (
+      #|pub fn parse(String) -> Unit
+      #|pub fn render(String, Options) -> String
+    ),
+  )
+  inspect(
+    @moonguard.render_json_report(report),
+    content=(
+      #|{
+      #|  "recommendation": "major",
+      #|  "change_count": 2,
+      #|  "summary": {
+      #|    "major": 1,
+      #|    "minor": 1,
+      #|    "patch": 0
+      #|  },
+      #|  "changes": [
+      #|    {
+      #|      "kind": "changed",
+      #|      "impact": "major",
+      #|      "item_kind": "fn",
+      #|      "name": "render",
+      #|      "old_signature": "render(String) -> String",
+      #|      "new_signature": "render(String, Options) -> String"
+      #|    },
+      #|    {
+      #|      "kind": "added",
+      #|      "impact": "minor",
+      #|      "item_kind": "fn",
+      #|      "name": "parse",
+      #|      "old_signature": null,
+      #|      "new_signature": "parse(String) -> Unit"
+      #|    }
+      #|  ]
+      #|}
+      #|
+    ),
+  )
+}
+
+///|
+test "render json report includes removed fields" {
+  let report = @moonguard.diff_interfaces(
+    (
+      #|pub fn parse(String) -> Unit
+      #|pub fn render(String) -> String
+    ),
+    (
+      #|pub fn render(String) -> String
+    ),
+  )
+  inspect(
+    @moonguard.render_json_report(report),
+    content=(
+      #|{
+      #|  "recommendation": "major",
+      #|  "change_count": 1,
+      #|  "summary": {
+      #|    "major": 1,
+      #|    "minor": 0,
+      #|    "patch": 0
+      #|  },
+      #|  "changes": [
+      #|    {
+      #|      "kind": "removed",
+      #|      "impact": "major",
+      #|      "item_kind": "fn",
+      #|      "name": "parse",
+      #|      "old_signature": "parse(String) -> Unit",
+      #|      "new_signature": null
+      #|    }
+      #|  ]
+      #|}
+      #|
+    ),
+  )
+}
+
+///|
+test "render json report escapes strings" {
+  let report = @moonguard.diff_interfaces(
+    (
+      #|pub const Message : String = "hello \"moon\""
+    ),
+    (
+      #|pub const Message : String = "hello \\moon"
+    ),
+  )
+  let json = @moonguard.render_json_report(report)
+  assert_true(json.contains("\\\"hello \\\\\\\"moon\\\\\\\"\\\""))
+  assert_true(json.contains("\\\"hello \\\\\\\\moon\\\""))
+}
+
+///|
 test "parse generic functions methods and impls" {
   let api = @moonguard.parse_interface(
     (
