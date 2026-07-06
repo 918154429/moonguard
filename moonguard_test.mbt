@@ -415,6 +415,57 @@ test "parse derive clauses as public api items" {
 }
 
 ///|
+test "parse abstract type declarations from generated interfaces" {
+  let api = @moonguard.parse_interface(
+    (
+      #|#alias(T, deprecated)
+      #|type HashMap[K, V] derive(Eq)
+      #|type Repr
+    ),
+  )
+  inspect(api.length(), content="3")
+  inspect(api[0].kind, content="derive")
+  inspect(api[0].name, content="HashMap.Eq")
+  inspect(api[0].signature, content="derive(Eq)")
+  inspect(api[1].kind, content="type")
+  inspect(api[1].name, content="HashMap")
+  inspect(api[1].signature, content="#alias(T, deprecated) HashMap[K, V]")
+  inspect(api[2].kind, content="type")
+  inspect(api[2].name, content="Repr")
+  inspect(api[2].signature, content="Repr")
+}
+
+///|
+test "public type inline derive is split from type signature" {
+  let api = @moonguard.parse_interface(
+    (
+      #|pub type Name derive(Eq)
+    ),
+  )
+  inspect(api.length(), content="2")
+  inspect(api[0].kind, content="derive")
+  inspect(api[0].name, content="Name.Eq")
+  inspect(api[1].kind, content="type")
+  inspect(api[1].name, content="Name")
+  inspect(api[1].signature, content="Name")
+}
+
+///|
+test "removed abstract type is a major api change" {
+  let report = @moonguard.diff_interfaces(
+    (
+      #|type Repr
+    ),
+    "",
+  )
+  assert_true(report.recommendation == @moonguard.Major)
+  inspect(report.changes.length(), content="1")
+  assert_true(report.changes[0].kind == @moonguard.Removed)
+  inspect(report.changes[0].item_kind, content="type")
+  inspect(report.changes[0].name, content="Repr")
+}
+
+///|
 test "removed derive is a major api change" {
   let report = @moonguard.diff_interfaces(
     (

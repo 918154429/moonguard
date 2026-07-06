@@ -80,6 +80,15 @@ pub fn parse_interface(text : String) -> Array[ApiItem] {
       container_name = ""
     }
     if !is_public_line(line[:]) {
+      match parse_interface_item(line[:], pending_attributes) {
+        Some(item) => {
+          items.push(item)
+          for derive_item in parse_closing_derives(item.name, line[:]) {
+            items.push(derive_item)
+          }
+        }
+        None => ()
+      }
       pending_attributes = []
       continue
     }
@@ -90,6 +99,9 @@ pub fn parse_interface(text : String) -> Array[ApiItem] {
           container_name = item.name
         }
         items.push(item)
+        for derive_item in parse_closing_derives(item.name, line[:]) {
+          items.push(derive_item)
+        }
       }
       None => ()
     }
@@ -240,6 +252,18 @@ pub fn semver_recommendation(old_text : String, new_text : String) -> String {
 }
 
 ///|
+fn parse_interface_item(
+  line : StringView,
+  attributes : Array[String],
+) -> ApiItem? {
+  if line.has_prefix("type ") {
+    Some(make_type_item(line.view(start_offset=5), attributes))
+  } else {
+    None
+  }
+}
+
+///|
 fn parse_public_item(line : StringView, attributes : Array[String]) -> ApiItem? {
   let public_body = public_body(line)
   let visibility = public_visibility(line)
@@ -279,8 +303,7 @@ fn parse_public_item(line : StringView, attributes : Array[String]) -> ApiItem? 
     )
   } else if public_body.has_prefix("type ") {
     Some(
-      make_item_with_visibility(
-        "type",
+      make_type_item_with_visibility(
         public_body.view(start_offset=5),
         visibility,
         attributes,
@@ -354,6 +377,33 @@ fn parse_public_item(line : StringView, attributes : Array[String]) -> ApiItem? 
     )
   } else {
     Some(make_unknown_item(public_body, visibility, attributes))
+  }
+}
+
+///|
+fn make_type_item(body : StringView, attributes : Array[String]) -> ApiItem {
+  let signature = normalize_signature(strip_inline_derive(body))
+  {
+    kind: "type",
+    name: extract_name(signature[:]),
+    signature: apply_attributes(signature, attributes),
+  }
+}
+
+///|
+fn make_type_item_with_visibility(
+  body : StringView,
+  visibility : String,
+  attributes : Array[String],
+) -> ApiItem {
+  let signature = normalize_signature(strip_inline_derive(body))
+  {
+    kind: "type",
+    name: extract_name(signature[:]),
+    signature: apply_attributes(
+      apply_visibility(signature, visibility),
+      attributes,
+    ),
   }
 }
 
@@ -552,6 +602,14 @@ fn derive_body(line : StringView) -> StringView? {
       None
     }
     None => None
+  }
+}
+
+///|
+fn strip_inline_derive(text : StringView) -> StringView {
+  match text.find(" derive(") {
+    Some(index) => text.view(start_offset=0, end_offset=index).trim()
+    None => text.trim()
   }
 }
 
