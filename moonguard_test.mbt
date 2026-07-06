@@ -270,6 +270,198 @@ test "unchanged api is patch" {
 }
 
 ///|
+test "parse strict semver versions" {
+  match @moonguard.parse_version("1.2.3") {
+    None => fail("expected version")
+    Some(version) => {
+      inspect(version.major, content="1")
+      inspect(version.minor, content="2")
+      inspect(version.patch, content="3")
+      inspect(@moonguard.version_to_string(version), content="1.2.3")
+    }
+  }
+  match @moonguard.parse_version(" 10.20.30 ") {
+    None => fail("expected trimmed version")
+    Some(version) =>
+      inspect(@moonguard.version_to_string(version), content="10.20.30")
+  }
+}
+
+///|
+test "reject invalid semver versions" {
+  assert_true(@moonguard.parse_version("") == None)
+  assert_true(@moonguard.parse_version("1") == None)
+  assert_true(@moonguard.parse_version("1.2") == None)
+  assert_true(@moonguard.parse_version("1.2.3.4") == None)
+  assert_true(@moonguard.parse_version("1.2.x") == None)
+  assert_true(@moonguard.parse_version("01.2.3") == None)
+  assert_true(@moonguard.parse_version("1.02.3") == None)
+  assert_true(@moonguard.parse_version("1.2.03") == None)
+  assert_true(@moonguard.parse_version("1.2.3-alpha") == None)
+}
+
+///|
+test "compare parsed versions" {
+  let one = parsed_version_for_test("1.2.3")
+  let same = parsed_version_for_test("1.2.3")
+  let patch = parsed_version_for_test("1.2.4")
+  let minor = parsed_version_for_test("1.3.0")
+  let major = parsed_version_for_test("2.0.0")
+  inspect(@moonguard.compare_versions(one, same), content="0")
+  inspect(@moonguard.compare_versions(one, patch), content="-1")
+  inspect(@moonguard.compare_versions(patch, one), content="1")
+  inspect(@moonguard.compare_versions(one, minor), content="-1")
+  inspect(@moonguard.compare_versions(major, one), content="1")
+}
+
+///|
+test "version check accepts patch bump for patch report" {
+  let report = @moonguard.diff_interfaces(
+    (
+      #|pub fn render(String) -> String
+    ),
+    (
+      #|pub fn render(String) -> String
+    ),
+  )
+  let check = @moonguard.check_version_bump(report, "1.2.3", "1.2.4")
+  assert_true(check.ok)
+  assert_true(check.required == @moonguard.Patch)
+  inspect(
+    check.reason,
+    content="next version satisfies the patch recommendation",
+  )
+}
+
+///|
+test "version check rejects unchanged next version" {
+  let report = @moonguard.diff_interfaces(
+    (
+      #|pub fn render(String) -> String
+    ),
+    (
+      #|pub fn render(String) -> String
+    ),
+  )
+  let check = @moonguard.check_version_bump(report, "1.2.3", "1.2.3")
+  assert_true(!check.ok)
+  assert_true(check.required == @moonguard.Patch)
+  inspect(
+    check.reason,
+    content="next version must be greater than current version",
+  )
+}
+
+///|
+test "version check accepts minor bump for added api" {
+  let report = @moonguard.diff_interfaces(
+    (
+      #|pub fn render(String) -> String
+    ),
+    (
+      #|pub fn parse(String) -> Unit
+      #|pub fn render(String) -> String
+    ),
+  )
+  let check = @moonguard.check_version_bump(report, "1.2.3", "1.3.0")
+  assert_true(check.ok)
+  assert_true(check.required == @moonguard.Minor)
+  inspect(check.current, content="1.2.3")
+  inspect(check.next, content="1.3.0")
+}
+
+///|
+test "version check rejects patch bump for added api" {
+  let report = @moonguard.diff_interfaces(
+    (
+      #|pub fn render(String) -> String
+    ),
+    (
+      #|pub fn parse(String) -> Unit
+      #|pub fn render(String) -> String
+    ),
+  )
+  let check = @moonguard.check_version_bump(report, "1.2.3", "1.2.4")
+  assert_true(!check.ok)
+  assert_true(check.required == @moonguard.Minor)
+  inspect(
+    check.reason,
+    content="minor recommendation requires increasing minor or major version",
+  )
+}
+
+///|
+test "version check accepts major bump for breaking api" {
+  let report = @moonguard.diff_interfaces(
+    (
+      #|pub fn render(String) -> String
+    ),
+    (
+      #|pub fn render(String, Options) -> String
+    ),
+  )
+  let check = @moonguard.check_version_bump(report, "1.2.3", "2.0.0")
+  assert_true(check.ok)
+  assert_true(check.required == @moonguard.Major)
+}
+
+///|
+test "version check rejects minor bump for breaking api" {
+  let report = @moonguard.diff_interfaces(
+    (
+      #|pub fn render(String) -> String
+    ),
+    (
+      #|pub fn render(String, Options) -> String
+    ),
+  )
+  let check = @moonguard.check_version_bump(report, "1.2.3", "1.3.0")
+  assert_true(!check.ok)
+  assert_true(check.required == @moonguard.Major)
+  inspect(
+    check.reason,
+    content="major recommendation requires increasing major version",
+  )
+}
+
+///|
+test "version check reports invalid current and next versions" {
+  let report = @moonguard.diff_interfaces("", "")
+  let bad_current = @moonguard.check_version_bump(report, "1.2", "1.2.3")
+  assert_true(!bad_current.ok)
+  inspect(
+    bad_current.reason,
+    content="current version must be a strict major.minor.patch value",
+  )
+  let bad_next = @moonguard.check_version_bump(report, "1.2.3", "next")
+  assert_true(!bad_next.ok)
+  inspect(
+    bad_next.reason,
+    content="next version must be a strict major.minor.patch value",
+  )
+}
+
+///|
+test "interface version check combines diff and semver" {
+  let check = @moonguard.check_interface_version_bump(
+    (
+      #|pub struct Options {
+      #|  mode : String
+      #|}
+    ),
+    (
+      #|pub struct Options {
+      #|  mode : Int
+      #|}
+    ),
+    "0.1.0",
+    "0.2.0",
+  )
+  assert_true(!check.ok)
+  assert_true(check.required == @moonguard.Major)
+}
+
+///|
 test "render markdown report" {
   let report = @moonguard.diff_interfaces(
     (
@@ -753,4 +945,12 @@ test "added trait method is a major api change" {
   assert_true(report.changes[0].kind == @moonguard.Added)
   inspect(report.changes[0].item_kind, content="trait-method")
   inspect(report.changes[0].name, content="Render.parse")
+}
+
+///|
+fn parsed_version_for_test(text : String) -> @moonguard.Version raise {
+  match @moonguard.parse_version(text) {
+    Some(version) => version
+    None => fail("expected valid version: \{text}")
+  }
 }

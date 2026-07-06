@@ -6,6 +6,12 @@ import {
 }
 
 // Values
+pub fn check_interface_version_bump(String, String, String, String) -> VersionCheck
+
+pub fn check_version_bump(ApiReport, String, String) -> VersionCheck
+
+pub fn compare_versions(Version, Version) -> Int
+
 pub fn diff_interfaces(String, String) -> ApiReport
 
 pub fn diff_items(Array[ApiItem], Array[ApiItem]) -> ApiReport
@@ -14,11 +20,15 @@ pub fn parse_interface(String) -> Array[ApiItem]
 
 pub fn parse_interface_with_namespace(String, String) -> Array[ApiItem]
 
+pub fn parse_version(String) -> Version?
+
 pub fn render_json_report(ApiReport) -> String
 
 pub fn render_markdown_report(ApiReport) -> String
 
 pub fn semver_recommendation(String, String) -> String
+
+pub fn version_to_string(Version) -> String
 
 // Errors
 
@@ -53,6 +63,20 @@ pub(all) enum Impact {
   Patch
   Minor
   Major
+} derive(Eq, @debug.Debug)
+
+pub struct Version {
+  major : Int
+  minor : Int
+  patch : Int
+} derive(Eq, @debug.Debug)
+
+pub struct VersionCheck {
+  ok : Bool
+  required : Impact
+  current : String
+  next : String
+  reason : String
 } derive(Eq, @debug.Debug)
 
 // Type aliases
