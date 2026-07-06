@@ -148,28 +148,44 @@ pub fn diff_items(
           })
         }
       None =>
-        changes.push({
-          kind: Removed,
-          impact: Major,
-          item_kind: old_item.kind,
-          name: old_item.name,
-          old_signature: Some(old_item.signature),
-          new_signature: None,
-        })
+        match find_kind_changed_item(new_items, old_item) {
+          Some(new_item) =>
+            changes.push({
+              kind: Changed,
+              impact: Major,
+              item_kind: "\{old_item.kind}->\{new_item.kind}",
+              name: old_item.name,
+              old_signature: Some("\{old_item.kind} \{old_item.signature}"),
+              new_signature: Some("\{new_item.kind} \{new_item.signature}"),
+            })
+          None =>
+            changes.push({
+              kind: Removed,
+              impact: Major,
+              item_kind: old_item.kind,
+              name: old_item.name,
+              old_signature: Some(old_item.signature),
+              new_signature: None,
+            })
+        }
     }
   }
   for new_item in new_items {
     match find_item(old_items, new_item.kind, new_item.name) {
       Some(_) => ()
       None =>
-        changes.push({
-          kind: Added,
-          impact: added_impact(new_item.kind),
-          item_kind: new_item.kind,
-          name: new_item.name,
-          old_signature: None,
-          new_signature: Some(new_item.signature),
-        })
+        match find_kind_changed_item(old_items, new_item) {
+          Some(_) => ()
+          None =>
+            changes.push({
+              kind: Added,
+              impact: added_impact(new_item.kind),
+              item_kind: new_item.kind,
+              name: new_item.name,
+              old_signature: None,
+              new_signature: Some(new_item.signature),
+            })
+        }
     }
   }
   sort_changes(changes)
@@ -898,6 +914,36 @@ fn find_item(items : Array[ApiItem], kind : String, name : String) -> ApiItem? {
     }
   }
   None
+}
+
+///|
+fn find_kind_changed_item(items : Array[ApiItem], item : ApiItem) -> ApiItem? {
+  if !is_top_level_kind(item.kind) {
+    return None
+  }
+  for candidate in items {
+    if candidate.name == item.name &&
+      candidate.kind != item.kind &&
+      is_top_level_kind(candidate.kind) {
+      return Some(candidate)
+    }
+  }
+  None
+}
+
+///|
+fn is_top_level_kind(kind : String) -> Bool {
+  kind == "fn" ||
+  kind == "type" ||
+  kind == "typealias" ||
+  kind == "struct" ||
+  kind == "enum" ||
+  kind == "trait" ||
+  kind == "impl" ||
+  kind == "let" ||
+  kind == "const" ||
+  kind == "suberror" ||
+  kind == "using"
 }
 
 ///|

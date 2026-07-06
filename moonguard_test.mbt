@@ -217,6 +217,44 @@ test "detect changed signature as major" {
 }
 
 ///|
+test "detect top-level kind change as one major change" {
+  let report = @moonguard.diff_interfaces(
+    (
+      #|pub struct Options {
+      #|}
+    ),
+    (
+      #|pub enum Options {
+      #|}
+    ),
+  )
+  assert_true(report.recommendation == @moonguard.Major)
+  inspect(report.changes.length(), content="1")
+  assert_true(report.changes[0].kind == @moonguard.Changed)
+  inspect(report.changes[0].item_kind, content="struct->enum")
+  inspect(report.changes[0].name, content="Options")
+  assert_true(report.changes[0].old_signature == Some("struct Options"))
+  assert_true(report.changes[0].new_signature == Some("enum Options"))
+}
+
+///|
+test "detect typealias to type as kind change" {
+  let report = @moonguard.diff_interfaces(
+    (
+      #|pub typealias Name = String
+    ),
+    (
+      #|pub type Name
+    ),
+  )
+  assert_true(report.recommendation == @moonguard.Major)
+  inspect(report.changes.length(), content="1")
+  assert_true(report.changes[0].kind == @moonguard.Changed)
+  inspect(report.changes[0].item_kind, content="typealias->type")
+  inspect(report.changes[0].name, content="Name")
+}
+
+///|
 test "unchanged api is patch" {
   inspect(
     @moonguard.semver_recommendation(
