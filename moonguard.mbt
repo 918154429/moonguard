@@ -266,19 +266,53 @@ pub fn render_markdown_report(report : ApiReport) -> String {
 /// Render a machine-readable JSON compatibility report.
 pub fn render_json_report(report : ApiReport) -> String {
   let out = StringBuilder()
+  write_json_report_object(out, report, 0)
+  out.write("\n")
+  out.to_string()
+}
+
+///|
+/// Render a Markdown summary for a SemVer check result.
+pub fn render_version_check_markdown(check : VersionCheck) -> String {
+  let out = StringBuilder()
+  out.write("## Version Check\n\n")
+  out.write("- Required bump: **")
+  out.write(impact_label(check.required))
+  out.write("**\n")
+  out.write("- Current version: `")
+  out.write(escape_markdown_cell(check.current))
+  out.write("`\n")
+  out.write("- Next version: `")
+  out.write(escape_markdown_cell(check.next))
+  out.write("`\n")
+  out.write("- Result: **")
+  if check.ok {
+    out.write("pass")
+  } else {
+    out.write("fail")
+  }
+  out.write("**\n")
+  out.write("- Reason: ")
+  out.write(escape_markdown_cell(check.reason))
+  out.write("\n")
+  out.to_string()
+}
+
+///|
+/// Render a combined JSON object for API diff and version-check output.
+pub fn render_json_check_result(
+  report : ApiReport,
+  check : VersionCheck,
+) -> String {
+  let out = StringBuilder()
   out.write("{\n")
-  write_json_string_field(
-    out,
-    "recommendation",
-    impact_label(report.recommendation),
-    2,
-  )
+  write_json_indent(out, 2)
+  out.write("\"report\": ")
+  write_json_report_object(out, report, 2)
   out.write(",\n")
-  write_json_number_field(out, "change_count", report.changes.length(), 2)
-  out.write(",\n")
-  write_json_summary_field(out, report, 2)
-  out.write(",\n")
-  write_json_changes_field(out, report.changes, 2)
+  write_json_indent(out, 2)
+  out.write("\"version_check\": ")
+  write_json_version_check_object(out, check, 2)
   out.write("\n")
   out.write("}\n")
   out.to_string()
@@ -1366,6 +1400,61 @@ fn change_details(change : ApiChange) -> String {
 }
 
 ///|
+fn write_json_report_object(
+  out : StringBuilder,
+  report : ApiReport,
+  indent : Int,
+) -> Unit {
+  out.write("{\n")
+  write_json_string_field(
+    out,
+    "recommendation",
+    impact_label(report.recommendation),
+    indent + 2,
+  )
+  out.write(",\n")
+  write_json_number_field(
+    out,
+    "change_count",
+    report.changes.length(),
+    indent + 2,
+  )
+  out.write(",\n")
+  write_json_summary_field(out, report, indent + 2)
+  out.write(",\n")
+  write_json_changes_field(out, report.changes, indent + 2)
+  out.write("\n")
+  write_json_indent(out, indent)
+  out.write("}")
+}
+
+///|
+fn write_json_version_check_object(
+  out : StringBuilder,
+  check : VersionCheck,
+  indent : Int,
+) -> Unit {
+  out.write("{\n")
+  write_json_bool_field(out, "ok", check.ok, indent + 2)
+  out.write(",\n")
+  write_json_string_field(
+    out,
+    "required",
+    impact_label(check.required),
+    indent + 2,
+  )
+  out.write(",\n")
+  write_json_string_field(out, "current", check.current, indent + 2)
+  out.write(",\n")
+  write_json_string_field(out, "next", check.next, indent + 2)
+  out.write(",\n")
+  write_json_string_field(out, "reason", check.reason, indent + 2)
+  out.write("\n")
+  write_json_indent(out, indent)
+  out.write("}")
+}
+
+///|
 fn write_json_summary_field(
   out : StringBuilder,
   report : ApiReport,
@@ -1506,6 +1595,23 @@ fn write_json_number_field(
   write_json_string(out, key)
   out.write(": ")
   out.write(value.to_string())
+}
+
+///|
+fn write_json_bool_field(
+  out : StringBuilder,
+  key : String,
+  value : Bool,
+  indent : Int,
+) -> Unit {
+  write_json_indent(out, indent)
+  write_json_string(out, key)
+  out.write(": ")
+  if value {
+    out.write("true")
+  } else {
+    out.write("false")
+  }
 }
 
 ///|

@@ -37,3 +37,11 @@ extern "js" fn list_interface_files_raw(root : String) -> String =
   #|    return "__MOONGUARD_READ_ERROR__:" + error.message
   #|  }
   #|}
+
+///|
+extern "js" fn exit_process(code : Int) -> Unit =
+  #|(code) => {
+  #|  if (code !== 0 && typeof process !== "undefined" && typeof process.exit === "function") {
+  #|    process.exit(code)
+  #|  }
+  #|}

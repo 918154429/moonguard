@@ -617,6 +617,80 @@ test "render json report escapes strings" {
 }
 
 ///|
+test "render markdown version check" {
+  let report = @moonguard.diff_interfaces(
+    (
+      #|pub fn render(String) -> String
+    ),
+    (
+      #|pub fn render(String, Options) -> String
+    ),
+  )
+  let check = @moonguard.check_version_bump(report, "1.2.3", "1.3.0")
+  inspect(
+    @moonguard.render_version_check_markdown(check),
+    content=(
+      #|## Version Check
+      #|
+      #|- Required bump: **major**
+      #|- Current version: `1.2.3`
+      #|- Next version: `1.3.0`
+      #|- Result: **fail**
+      #|- Reason: major recommendation requires increasing major version
+      #|
+    ),
+  )
+}
+
+///|
+test "render json check result" {
+  let report = @moonguard.diff_interfaces(
+    (
+      #|pub fn render(String) -> String
+    ),
+    (
+      #|pub fn parse(String) -> Unit
+      #|pub fn render(String) -> String
+    ),
+  )
+  let check = @moonguard.check_version_bump(report, "1.2.3", "1.2.4")
+  inspect(
+    @moonguard.render_json_check_result(report, check),
+    content=(
+      #|{
+      #|  "report": {
+      #|    "recommendation": "minor",
+      #|    "change_count": 1,
+      #|    "summary": {
+      #|      "major": 0,
+      #|      "minor": 1,
+      #|      "patch": 0
+      #|    },
+      #|    "changes": [
+      #|      {
+      #|        "kind": "added",
+      #|        "impact": "minor",
+      #|        "item_kind": "fn",
+      #|        "name": "parse",
+      #|        "old_signature": null,
+      #|        "new_signature": "parse(String) -> Unit"
+      #|      }
+      #|    ]
+      #|  },
+      #|  "version_check": {
+      #|    "ok": false,
+      #|    "required": "minor",
+      #|    "current": "1.2.3",
+      #|    "next": "1.2.4",
+      #|    "reason": "minor recommendation requires increasing minor or major version"
+      #|  }
+      #|}
+      #|
+    ),
+  )
+}
+
+///|
 test "parse generic functions methods and impls" {
   let api = @moonguard.parse_interface(
     (

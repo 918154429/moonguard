@@ -9,3 +9,8 @@ fn list_interface_files_raw(_root : String) -> String {
   read_error_prefix +
   "directory input currently requires the JS backend; run with `moon run --target js cmd/main -- report-dir old_dir new_dir`"
 }
+
+///|
+fn exit_process(_code : Int) -> Unit {
+  ()
+}

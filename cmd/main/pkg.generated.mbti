@@ -1,11 +1,19 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "ccfoss/moonguard/cmd/main"
 
+import {
+  "moonbitlang/core/debug",
+}
+
 // Values
+pub fn run_args(Array[String]) -> String
 
 // Errors
 
 // Types and methods
+type CheckOptions derive(Eq, @debug.Debug)
+
+type CliResult derive(Eq, @debug.Debug)
 
 // Type aliases
 
