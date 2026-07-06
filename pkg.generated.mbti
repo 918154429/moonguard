@@ -1,16 +1,55 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "ccfoss/moonmark"
+package "ccfoss/moonguard"
+
+import {
+  "moonbitlang/core/debug",
+}
 
 // Values
-pub fn escape_html(StringView) -> String
+pub fn diff_interfaces(String, String) -> ApiReport
 
-pub fn render(String) -> String
+pub fn diff_items(Array[ApiItem], Array[ApiItem]) -> ApiReport
 
-pub fn render_inline(StringView) -> String
+pub fn parse_interface(String) -> Array[ApiItem]
+
+pub fn render_markdown_report(ApiReport) -> String
+
+pub fn semver_recommendation(String, String) -> String
 
 // Errors
 
 // Types and methods
+pub struct ApiChange {
+  kind : ChangeKind
+  impact : Impact
+  item_kind : String
+  name : String
+  old_signature : String?
+  new_signature : String?
+} derive(Eq, @debug.Debug)
+
+pub struct ApiItem {
+  kind : String
+  name : String
+  signature : String
+} derive(Eq, @debug.Debug)
+
+pub struct ApiReport {
+  changes : Array[ApiChange]
+  recommendation : Impact
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ChangeKind {
+  Added
+  Removed
+  Changed
+} derive(Eq, @debug.Debug)
+
+pub(all) enum Impact {
+  Patch
+  Minor
+  Major
+} derive(Eq, @debug.Debug)
 
 // Type aliases
 

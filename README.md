@@ -1,85 +1,88 @@
-# moonmark
+# MoonGuard
 
-Moonmark is a safe Markdown-to-HTML renderer written in MoonBit. It provides a
-small reusable library API and a command-line renderer for a practical
-CommonMark-inspired subset.
+MoonGuard is a MoonBit public API compatibility and SemVer guard. It compares
+two MoonBit interface snapshots, reports public API additions, removals, and
+signature changes, then recommends whether the next release should be patch,
+minor, or major.
 
-The project is intentionally scoped for predictable behavior rather than full
-CommonMark compliance. User text is escaped before it is written into HTML, so
-rendering untrusted Markdown does not directly inject raw HTML.
+The project is being built for the MoonBit open-source ecosystem competition as
+engineering infrastructure for package authors and CI workflows.
 
-## Features
+## MVP Features
 
-- Paragraphs and whitespace-only documents
-- ATX headings (`#` through `######`)
-- Setext headings (`Title` followed by `===` or `---`)
-- Unordered and ordered lists
-- Fenced code blocks with optional `language-*` classes
-- Blockquotes
-- Thematic breaks
-- Inline code spans
-- Inline links and images
-- URI and email autolinks
-- Emphasis and strong emphasis
-- HTML escaping for text and attributes
+- Parse public declarations from `.mbti`-style interface text.
+- Normalize whitespace and declaration order.
+- Track public `fn`, `type`, `typealias`, `struct`, `enum`, `trait`, `impl`,
+  `let`, and `const` declarations.
+- Classify public API changes:
+  - added public API -> minor
+  - removed public API -> major
+  - changed signature -> major
+  - unchanged public API -> patch
+- Render a Markdown compatibility report suitable for PR comments or release
+  notes.
+- Provide a small CLI demo path.
 
 ## Installation
 
 Install the MoonBit toolchain, then clone this repository:
 
 ```sh
-git clone https://github.com/918154429/moonmark.git
-cd moonmark
+git clone https://github.com/918154429/moonguard.git
+cd moonguard
 moon check
 moon test
 ```
 
 ## Library Usage
 
-Use `@moonmark.render` to render a Markdown document into an HTML fragment:
-
 ```moonbit
-let html = @moonmark.render("# Hello <MoonBit>")
-// <h1>Hello &lt;MoonBit&gt;</h1>
+let old_api = "pub fn render(String) -> String"
+let new_api = "pub fn render(String, Options) -> String"
+
+let report = @moonguard.diff_interfaces(old_api, new_api)
+let markdown = @moonguard.render_markdown_report(report)
 ```
 
-Inline-only rendering is available through `@moonmark.render_inline`, and
-`@moonmark.escape_html` is exposed for callers that need the same escaping
-policy.
+The report recommendation is `patch`, `minor`, or `major`.
 
 ## CLI Usage
 
-Render Markdown passed as command-line arguments:
+The MVP CLI accepts two interface snapshots as arguments:
 
 ```sh
-moon run cmd/main -- "# Hello <MoonBit>"
+moon run cmd/main -- report "pub fn render(String) -> String" "pub fn render(String, Options) -> String"
 ```
 
 Output:
 
-```html
-<h1>Hello &lt;MoonBit&gt;</h1>
+```md
+# MoonGuard API Compatibility Report
+
+- Recommendation: **major**
+- Changes: 1
+
+| Impact | Change | Symbol | Details |
+| --- | --- | --- | --- |
+| major | changed | `fn render` | `render(String) -> String` -> `render(String, Options) -> String` |
 ```
 
-Other commands:
+File-based CLI input is planned after the project settles on the portable
+MoonBit file IO path for the current toolchain.
 
-```sh
-moon run cmd/main -- --help
-moon run cmd/main -- --version
-```
+## Compatibility Rules
 
-Stdin rendering is planned, but this version keeps the CLI on the reliably
-portable argument path exposed by `moonbitlang/core/env`.
+MoonGuard starts with conservative rules:
 
-## Compatibility
+- Removing a public declaration is a breaking change.
+- Changing a public signature is a breaking change.
+- Adding a public declaration is a minor-compatible change.
+- Reordering declarations, changing comments, or changing whitespace does not
+  affect the public API model.
 
-Moonmark implements a documented Markdown subset. It does not currently claim
-full CommonMark compatibility, raw HTML passthrough, nested block parsing, table
-syntax, task lists, or reference-style links.
-
-Malformed inline markup falls back to escaped text where practical. The tests
-cover unclosed code fences, malformed links, unmatched emphasis markers, HTML
-escaping, and CRLF-tolerant line handling.
+The parser intentionally covers high-frequency `.mbti` declarations first. Any
+unrecognized `pub` line is retained as `unknown` so that public surface changes
+remain visible instead of being silently ignored.
 
 ## Development
 
@@ -95,6 +98,5 @@ moon test
 Generated `pkg.generated.mbti` files are kept in the repository so interface
 changes are reviewable after `moon info`.
 
-See [docs/development-report.md](docs/development-report.md) and
-[docs/competition-plan.md](docs/competition-plan.md) for project scope,
-architecture notes, and competition execution status.
+See [docs/competition-plan.md](docs/competition-plan.md) for the competition
+plan.

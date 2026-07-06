@@ -9,16 +9,16 @@
 //   "moonbitlang/x@0.4.6",
 // }
 
-name = "ccfoss/moonmark"
+name = "ccfoss/moonguard"
 
 version = "0.1.0"
 
 readme = "README.md"
 
-repository = "https://github.com/918154429/moonmark"
+repository = "https://github.com/918154429/moonguard"
 
 license = "Apache-2.0"
 
-keywords = [ "markdown", "html", "renderer", "moonbit", "commonmark" ]
+keywords = [ "api", "semver", "compatibility", "moonbit", "ci" ]
 
-description = "Safe Markdown-to-HTML renderer for the MoonBit ecosystem"
+description = "MoonBit public API compatibility and SemVer guard"

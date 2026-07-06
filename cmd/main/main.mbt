@@ -1,42 +1,33 @@
 ///|
-/// Render Markdown passed as command-line arguments.
+/// Compare two interface snapshots passed as command-line arguments.
 fn main {
   let args = @env.args()
-  let markdown = StringBuilder()
-  let mut saw_input = false
-  for i in 1..<args.length() {
-    let arg = args[i]
-    if arg == "--help" || arg == "-h" {
-      print_help()
-      return
-    } else if arg == "--version" || arg == "-V" {
-      println("moonmark 0.1.0")
-      return
-    } else {
-      if saw_input {
-        markdown.write(" ")
-      }
-      markdown.write(arg)
-      saw_input = true
-    }
-  }
-  if saw_input {
-    println(@moonmark.render(markdown.to_string()))
-  } else {
+  if args.length() == 2 && (args[1] == "--help" || args[1] == "-h") {
     print_help()
+    return
   }
+  if args.length() == 2 && (args[1] == "--version" || args[1] == "-V") {
+    println("moonguard 0.1.0")
+    return
+  }
+  if args.length() != 4 || args[1] != "report" {
+    print_help()
+    return
+  }
+  let report = @moonguard.diff_interfaces(args[2], args[3])
+  println(@moonguard.render_markdown_report(report))
 }
 
 ///|
 fn print_help() -> Unit {
   let help =
-    #|moonmark 0.1.0
+    #|moonguard 0.1.0
     #|
     #|Usage:
-    #|  moon run cmd/main -- "# Hello"
+    #|  moon run cmd/main -- report "pub fn old() -> Unit" "pub fn new() -> Unit"
     #|  moon run cmd/main -- --version
     #|  moon run cmd/main -- --help
     #|
-    #|Render a practical Markdown subset to an escaped HTML fragment.
+    #|Compare two MoonBit interface snapshots and print a Markdown report.
   println(help)
 }
