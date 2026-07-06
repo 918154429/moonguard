@@ -6,11 +6,25 @@ import {
 }
 
 // Values
+pub fn api_file(String, String) -> ApiFile
+
+pub fn build_api_snapshot(Array[ApiFile]) -> ApiSnapshot
+
 pub fn check_interface_version_bump(String, String, String, String) -> VersionCheck
 
 pub fn check_version_bump(ApiReport, String, String) -> VersionCheck
 
+pub fn compare_api_file_sets(Array[ApiFile], Array[ApiFile]) -> ApiPackageComparison
+
+pub fn compare_api_snapshots(ApiSnapshot, ApiSnapshot) -> ApiPackageComparison
+
 pub fn compare_versions(Version, Version) -> Int
+
+pub fn count_items_by_kind(Array[ApiItem]) -> Array[ApiKindCount]
+
+pub fn diagnostics_have_errors(Array[ApiDiagnostic]) -> Bool
+
+pub fn diff_api_snapshots(ApiSnapshot, ApiSnapshot) -> ApiReport
 
 pub fn diff_interfaces(String, String) -> ApiReport
 
@@ -19,6 +33,8 @@ pub fn diff_items(Array[ApiItem], Array[ApiItem]) -> ApiReport
 pub fn filter_report(ApiReport, String) -> ApiReport
 
 pub fn filter_report_with_rules(ApiReport, Array[ApiIgnoreRule]) -> ApiReport
+
+pub fn merge_diagnostics(Array[ApiDiagnostic], Array[ApiDiagnostic]) -> Array[ApiDiagnostic]
 
 pub fn parse_ignore_rules(String) -> IgnoreParseResult
 
@@ -30,13 +46,25 @@ pub fn parse_version(String) -> Version?
 
 pub fn render_json_check_result(ApiReport, VersionCheck) -> String
 
+pub fn render_json_package_report(ApiReport, Array[ApiDiagnostic]) -> String
+
 pub fn render_json_report(ApiReport) -> String
 
+pub fn render_json_snapshot_inventory(ApiSnapshot) -> String
+
+pub fn render_markdown_package_report(ApiReport, Array[ApiDiagnostic]) -> String
+
 pub fn render_markdown_report(ApiReport) -> String
+
+pub fn render_markdown_snapshot_inventory(ApiSnapshot) -> String
 
 pub fn render_version_check_markdown(VersionCheck) -> String
 
 pub fn semver_recommendation(String, String) -> String
+
+pub fn summarize_diagnostics(Array[ApiDiagnostic]) -> DiagnosticSummary
+
+pub fn summarize_report(ApiReport) -> ApiSummary
 
 pub fn version_to_string(Version) -> String
 
@@ -52,6 +80,18 @@ pub struct ApiChange {
   new_signature : String?
 } derive(Eq, @debug.Debug)
 
+pub struct ApiDiagnostic {
+  severity : String
+  code : String
+  path : String
+  message : String
+} derive(Eq, @debug.Debug)
+
+pub struct ApiFile {
+  path : String
+  text : String
+} derive(Eq, @debug.Debug)
+
 pub struct ApiIgnoreRule {
   item_kind : String
   name : String
@@ -64,15 +104,51 @@ pub struct ApiItem {
   signature : String
 } derive(Eq, @debug.Debug)
 
+pub struct ApiKindCount {
+  kind : String
+  count : Int
+} derive(Eq, @debug.Debug)
+
+pub struct ApiPackageComparison {
+  old_snapshot : ApiSnapshot
+  new_snapshot : ApiSnapshot
+  report : ApiReport
+  diagnostics : Array[ApiDiagnostic]
+  summary : ApiSummary
+  diagnostic_summary : DiagnosticSummary
+} derive(Eq, @debug.Debug)
+
 pub struct ApiReport {
   changes : Array[ApiChange]
   recommendation : Impact
+} derive(Eq, @debug.Debug)
+
+pub struct ApiSnapshot {
+  items : Array[ApiItem]
+  diagnostics : Array[ApiDiagnostic]
+} derive(Eq, @debug.Debug)
+
+pub struct ApiSummary {
+  total : Int
+  major : Int
+  minor : Int
+  patch : Int
+  added : Int
+  removed : Int
+  changed : Int
 } derive(Eq, @debug.Debug)
 
 pub(all) enum ChangeKind {
   Added
   Removed
   Changed
+} derive(Eq, @debug.Debug)
+
+pub struct DiagnosticSummary {
+  total : Int
+  errors : Int
+  warnings : Int
+  infos : Int
 } derive(Eq, @debug.Debug)
 
 pub struct IgnoreParseResult {

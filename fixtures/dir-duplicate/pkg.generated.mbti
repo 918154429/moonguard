@@ -1,0 +1,5 @@
+// Duplicate API fixture for package diagnostics.
+package "ccfoss/moonguard/duplicate"
+
+pub fn render(String) -> String
+pub fn render(String) -> String

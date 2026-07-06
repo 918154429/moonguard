@@ -22,6 +22,12 @@ struct ReportOptions {
 } derive(Eq, Debug)
 
 ///|
+struct PackageReportResult {
+  report : @moonguard.ApiReport
+  diagnostics : Array[@moonguard.ApiDiagnostic]
+} derive(Eq, Debug)
+
+///|
 /// Compare two interface snapshots from files or command-line text.
 fn main {
   let result = run_args_result(@env.args())
@@ -53,6 +59,8 @@ fn run_args_result(args : Array[String]) -> CliResult {
     report_files_command(cli_args)
   } else if cli_args[0] == "report-dir" {
     report_dirs_command(cli_args)
+  } else if cli_args[0] == "inventory-dir" {
+    inventory_dir_command(cli_args)
   } else if cli_args[0] == "check" {
     check_files_command(cli_args)
   } else {
@@ -73,6 +81,7 @@ fn command_start(args : Array[String]) -> Int {
     if arg == "report" ||
       arg == "report-dir" ||
       arg == "report-text" ||
+      arg == "inventory-dir" ||
       arg == "check" ||
       arg == "--help" ||
       arg == "-h" ||
@@ -128,14 +137,47 @@ fn report_dirs_command(args : ArrayView[String]) -> CliResult {
   match parse_report_options(args, 3) {
     Err(message) => error_result(message)
     Ok(format) =>
-      match diff_dir_report(args[1], args[2]) {
+      match diff_dir_package_report(args[1], args[2]) {
         Err(message) => error_result(message)
-        Ok(report) =>
-          match apply_ignore_file(report, format.ignore_file) {
+        Ok(package_report) =>
+          match apply_ignore_file(package_report.report, format.ignore_file) {
             Err(message) => error_result(message)
-            Ok(filtered) => ok_result(render_report(filtered, format.format))
+            Ok(filtered) =>
+              package_result(
+                filtered,
+                package_report.diagnostics,
+                format.format,
+              )
           }
       }
+  }
+}
+
+///|
+fn inventory_dir_command(args : ArrayView[String]) -> CliResult {
+  if args.length() < 2 {
+    return error_result("error: inventory-dir requires DIR")
+  }
+  match parse_report_options(args, 2) {
+    Err(message) => error_result(message)
+    Ok(options) => {
+      if options.ignore_file.length() > 0 {
+        return error_result(
+          "error: inventory-dir does not support --ignore-file",
+        )
+      }
+      let files = list_interface_files_raw(args[1])
+      if files.has_prefix(read_error_prefix) {
+        let message = files[read_error_prefix.length():].to_owned()
+        return error_result(
+          "error: cannot list interface directory '\{args[1]}': \{message}",
+        )
+      }
+      match read_dir_snapshot(args[1], parse_file_list(files[:]), "target") {
+        Err(message) => error_result(message)
+        Ok(snapshot) => inventory_result(snapshot, options.format)
+      }
+    }
   }
 }
 
@@ -203,10 +245,10 @@ fn diff_file_report(
 }
 
 ///|
-fn diff_dir_report(
+fn diff_dir_package_report(
   old_dir : String,
   new_dir : String,
-) -> Result[@moonguard.ApiReport, String] {
+) -> Result[PackageReportResult, String] {
   let old_files = list_interface_files_raw(old_dir)
   if old_files.has_prefix(read_error_prefix) {
     let message = old_files[read_error_prefix.length():].to_owned()
@@ -221,17 +263,18 @@ fn diff_dir_report(
       "error: cannot list new interface directory '\{new_dir}': \{message}",
     )
   }
-  let old_items = match
-    read_dir_items(old_dir, parse_file_list(old_files[:]), "old") {
-    Ok(items) => items
+  let old_snapshot = match
+    read_dir_snapshot(old_dir, parse_file_list(old_files[:]), "old") {
+    Ok(snapshot) => snapshot
     Err(message) => return Err(message)
   }
-  let new_items = match
-    read_dir_items(new_dir, parse_file_list(new_files[:]), "new") {
-    Ok(items) => items
+  let new_snapshot = match
+    read_dir_snapshot(new_dir, parse_file_list(new_files[:]), "new") {
+    Ok(snapshot) => snapshot
     Err(message) => return Err(message)
   }
-  Ok(@moonguard.diff_items(old_items, new_items))
+  let comparison = @moonguard.compare_api_snapshots(old_snapshot, new_snapshot)
+  Ok({ report: comparison.report, diagnostics: comparison.diagnostics })
 }
 
 ///|
@@ -255,6 +298,41 @@ fn apply_ignore_file(
 }
 
 ///|
+fn package_result(
+  report : @moonguard.ApiReport,
+  diagnostics : Array[@moonguard.ApiDiagnostic],
+  format : String,
+) -> CliResult {
+  let output = if format == "json" {
+    @moonguard.render_json_package_report(report, diagnostics)
+  } else {
+    @moonguard.render_markdown_package_report(report, diagnostics)
+  }
+  if @moonguard.diagnostics_have_errors(diagnostics) {
+    { output, exit_code: 2 }
+  } else {
+    { output, exit_code: 0 }
+  }
+}
+
+///|
+fn inventory_result(
+  snapshot : @moonguard.ApiSnapshot,
+  format : String,
+) -> CliResult {
+  let output = if format == "json" {
+    @moonguard.render_json_snapshot_inventory(snapshot)
+  } else {
+    @moonguard.render_markdown_snapshot_inventory(snapshot)
+  }
+  if @moonguard.diagnostics_have_errors(snapshot.diagnostics) {
+    { output, exit_code: 2 }
+  } else {
+    { output, exit_code: 0 }
+  }
+}
+
+///|
 fn render_ignore_errors(ignore_file : String, errors : Array[String]) -> String {
   let out = StringBuilder()
   out.write("error: invalid ignore file '")
@@ -268,12 +346,17 @@ fn render_ignore_errors(ignore_file : String, errors : Array[String]) -> String 
 }
 
 ///|
-fn read_dir_items(
+fn read_dir_snapshot(
   root : String,
   files : Array[String],
   label : String,
-) -> Result[Array[@moonguard.ApiItem], String] {
-  let items : Array[@moonguard.ApiItem] = []
+) -> Result[@moonguard.ApiSnapshot, String] {
+  if files.is_empty() {
+    return Err(
+      "error: no .mbti files found in \{label} interface directory '\{root}'",
+    )
+  }
+  let api_files : Array[@moonguard.ApiFile] = []
   for rel in files {
     let path = join_path(root, rel)
     let text = read_file_raw(path)
@@ -283,19 +366,9 @@ fn read_dir_items(
         "error: cannot read \{label} interface file '\{rel}': \{message}",
       )
     }
-    for item in prefixed_items(rel, text) {
-      items.push(item)
-    }
+    api_files.push(@moonguard.api_file(rel, text))
   }
-  Ok(items)
-}
-
-///|
-fn prefixed_items(
-  relative_path : String,
-  text : String,
-) -> Array[@moonguard.ApiItem] {
-  @moonguard.parse_interface_with_namespace(text, relative_path)
+  Ok(@moonguard.build_api_snapshot(api_files))
 }
 
 ///|
@@ -472,6 +545,7 @@ fn help_text() -> String {
     #|Usage:
     #|  moon run --target js cmd/main -- report old.mbti new.mbti [--format markdown|json] [--ignore-file path]
     #|  moon run --target js cmd/main -- report-dir old_dir new_dir [--format markdown|json] [--ignore-file path]
+    #|  moon run --target js cmd/main -- inventory-dir dir [--format markdown|json]
     #|  moon run --target js cmd/main -- check old.mbti new.mbti --current 0.1.0 --next 0.2.0 [--format markdown|json] [--ignore-file path]
     #|  moon run cmd/main -- report-text "pub fn old() -> Unit" "pub fn new() -> Unit" [--format markdown|json] [--ignore-file path]
     #|  moon run cmd/main -- --version

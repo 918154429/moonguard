@@ -665,6 +665,656 @@ test "filter report with parsed rules leaves unmatched changes" {
 }
 
 ///|
+test "build api snapshot namespaces files" {
+  let snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file(
+      "pkg.generated.mbti",
+      (
+        #|pub fn render(String) -> String
+        #|pub struct Options {
+        #|  mode : String
+        #|}
+      ),
+    ),
+    @moonguard.api_file(
+      "cmd/pkg.generated.mbti",
+      (
+        #|pub fn main() -> Unit
+      ),
+    ),
+  ])
+  inspect(snapshot.diagnostics.length(), content="0")
+  inspect(snapshot.items.length(), content="4")
+  inspect(snapshot.items[0].kind, content="field")
+  inspect(snapshot.items[0].name, content="pkg.generated.mbti::Options.mode")
+  inspect(snapshot.items[1].kind, content="fn")
+  inspect(snapshot.items[1].name, content="cmd/pkg.generated.mbti::main")
+  inspect(snapshot.items[2].kind, content="fn")
+  inspect(snapshot.items[2].name, content="pkg.generated.mbti::render")
+  inspect(snapshot.items[3].kind, content="struct")
+  inspect(snapshot.items[3].name, content="pkg.generated.mbti::Options")
+}
+
+///|
+test "build api snapshot reports empty file list" {
+  let snapshot = @moonguard.build_api_snapshot([])
+  inspect(snapshot.items.length(), content="0")
+  inspect(snapshot.diagnostics.length(), content="1")
+  inspect(snapshot.diagnostics[0].severity, content="warning")
+  inspect(snapshot.diagnostics[0].code, content="empty-file-list")
+  inspect(
+    snapshot.diagnostics[0].message,
+    content="no interface files were provided",
+  )
+  assert_true(!@moonguard.diagnostics_have_errors(snapshot.diagnostics))
+}
+
+///|
+test "build api snapshot reports empty path and empty interface" {
+  let snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file("", "pub fn hidden() -> Unit"),
+    @moonguard.api_file("empty.mbti", "// no public surface"),
+  ])
+  inspect(snapshot.items.length(), content="0")
+  inspect(snapshot.diagnostics.length(), content="2")
+  inspect(snapshot.diagnostics[0].severity, content="error")
+  inspect(snapshot.diagnostics[0].code, content="empty-path")
+  inspect(snapshot.diagnostics[1].severity, content="warning")
+  inspect(snapshot.diagnostics[1].code, content="empty-interface")
+  inspect(snapshot.diagnostics[1].path, content="empty.mbti")
+  assert_true(@moonguard.diagnostics_have_errors(snapshot.diagnostics))
+}
+
+///|
+test "build api snapshot reports duplicate symbols" {
+  let snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file(
+      "pkg.generated.mbti",
+      (
+        #|pub fn render(String) -> String
+        #|pub fn render(String) -> String
+      ),
+    ),
+  ])
+  inspect(snapshot.items.length(), content="2")
+  inspect(snapshot.diagnostics.length(), content="1")
+  inspect(snapshot.diagnostics[0].severity, content="error")
+  inspect(snapshot.diagnostics[0].code, content="duplicate-symbol")
+  inspect(snapshot.diagnostics[0].path, content="pkg.generated.mbti")
+  inspect(
+    snapshot.diagnostics[0].message,
+    content="duplicate API item 'fn pkg.generated.mbti::render' appears 2 times",
+  )
+}
+
+///|
+test "diff api snapshots compares package items" {
+  let old_snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file(
+      "pkg.generated.mbti",
+      (
+        #|pub fn render(String) -> String
+      ),
+    ),
+  ])
+  let new_snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file(
+      "pkg.generated.mbti",
+      (
+        #|pub fn parse(String) -> Unit
+        #|pub fn render(String, Options) -> String
+      ),
+    ),
+  ])
+  let report = @moonguard.diff_api_snapshots(old_snapshot, new_snapshot)
+  assert_true(report.recommendation == @moonguard.Major)
+  inspect(report.changes.length(), content="2")
+  inspect(report.changes[0].name, content="pkg.generated.mbti::render")
+  inspect(report.changes[1].name, content="pkg.generated.mbti::parse")
+}
+
+///|
+test "summarize report counts impact and change kinds" {
+  let report = @moonguard.diff_interfaces(
+    (
+      #|pub fn old_name() -> Unit
+      #|pub fn render(String) -> String
+    ),
+    (
+      #|pub fn parse(String) -> Unit
+      #|pub fn render(String, Options) -> String
+    ),
+  )
+  let summary = @moonguard.summarize_report(report)
+  inspect(summary.total, content="3")
+  inspect(summary.major, content="2")
+  inspect(summary.minor, content="1")
+  inspect(summary.patch, content="0")
+  inspect(summary.added, content="1")
+  inspect(summary.removed, content="1")
+  inspect(summary.changed, content="1")
+}
+
+///|
+test "summarize diagnostics counts severities" {
+  let warning_snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file("empty.mbti", ""),
+  ])
+  let error_snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file("", "pub fn broken() -> Unit"),
+  ])
+  let diagnostics = @moonguard.merge_diagnostics(
+    warning_snapshot.diagnostics,
+    error_snapshot.diagnostics,
+  )
+  let summary = @moonguard.summarize_diagnostics(diagnostics)
+  inspect(summary.total, content="2")
+  inspect(summary.errors, content="1")
+  inspect(summary.warnings, content="1")
+  inspect(summary.infos, content="0")
+}
+
+///|
+test "count items by kind sorts counts by kind" {
+  let snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file(
+      "pkg.generated.mbti",
+      (
+        #|pub fn render(String) -> String
+        #|pub struct Options {
+        #|  mode : String
+        #|}
+        #|pub enum Level {
+        #|  Basic
+        #|}
+      ),
+    ),
+  ])
+  let counts = @moonguard.count_items_by_kind(snapshot.items)
+  inspect(counts.length(), content="5")
+  inspect(counts[0].kind, content="constructor")
+  inspect(counts[0].count, content="1")
+  inspect(counts[1].kind, content="enum")
+  inspect(counts[2].kind, content="field")
+  inspect(counts[3].kind, content="fn")
+  inspect(counts[4].kind, content="struct")
+}
+
+///|
+test "compare api file sets returns snapshots report and summaries" {
+  let comparison = @moonguard.compare_api_file_sets(
+    [
+      @moonguard.api_file(
+        "pkg.generated.mbti",
+        (
+          #|pub fn render(String) -> String
+        ),
+      ),
+    ],
+    [
+      @moonguard.api_file(
+        "pkg.generated.mbti",
+        (
+          #|pub fn parse(String) -> Unit
+          #|pub fn render(String, Options) -> String
+        ),
+      ),
+      @moonguard.api_file("empty.mbti", ""),
+    ],
+  )
+  inspect(comparison.old_snapshot.items.length(), content="1")
+  inspect(comparison.new_snapshot.items.length(), content="2")
+  inspect(comparison.report.changes.length(), content="2")
+  inspect(comparison.summary.total, content="2")
+  inspect(comparison.summary.major, content="1")
+  inspect(comparison.summary.minor, content="1")
+  inspect(comparison.diagnostics.length(), content="1")
+  inspect(comparison.diagnostic_summary.warnings, content="1")
+}
+
+///|
+test "render markdown package report includes summary and diagnostics" {
+  let report = @moonguard.diff_interfaces(
+    (
+      #|pub fn render(String) -> String
+    ),
+    (
+      #|pub fn parse(String) -> Unit
+      #|pub fn render(String, Options) -> String
+    ),
+  )
+  let snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file("empty.mbti", ""),
+  ])
+  inspect(
+    @moonguard.render_markdown_package_report(report, snapshot.diagnostics),
+    content=(
+      #|# MoonGuard Package API Compatibility Report
+      #|
+      #|- Recommendation: **major**
+      #|- Changes: 2
+      #|- Major changes: 1
+      #|- Minor changes: 1
+      #|- Patch changes: 0
+      #|- Added/Removed/Changed: 1/0/1
+      #|- Diagnostics: 1 (errors 0, warnings 1, infos 0)
+      #|
+      #|## Diagnostics
+      #|
+      #|| Severity | Code | Path | Message |
+      #|| --- | --- | --- | --- |
+      #|| warning | empty-interface | `empty.mbti` | interface file has no public API items |
+      #|
+      #|| Impact | Change | Symbol | Details |
+      #|| --- | --- | --- | --- |
+      #|| major | changed | `fn render` | `render(String) -> String` -> `render(String, Options) -> String` |
+      #|| minor | added | `fn parse` | `parse(String) -> Unit` |
+      #|
+    ),
+  )
+}
+
+///|
+test "render json package report includes diagnostics" {
+  let report = @moonguard.diff_interfaces("", "pub fn parse(String) -> Unit")
+  let snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file("empty.mbti", ""),
+  ])
+  inspect(
+    @moonguard.render_json_package_report(report, snapshot.diagnostics),
+    content=(
+      #|{
+      #|  "report": {
+      #|    "recommendation": "minor",
+      #|    "change_count": 1,
+      #|    "summary": {
+      #|      "major": 0,
+      #|      "minor": 1,
+      #|      "patch": 0
+      #|    },
+      #|    "changes": [
+      #|      {
+      #|        "kind": "added",
+      #|        "impact": "minor",
+      #|        "item_kind": "fn",
+      #|        "name": "parse",
+      #|        "old_signature": null,
+      #|        "new_signature": "parse(String) -> Unit"
+      #|      }
+      #|    ]
+      #|  },
+      #|  "diagnostic_summary": {
+      #|    "total": 1,
+      #|    "errors": 0,
+      #|    "warnings": 1,
+      #|    "infos": 0
+      #|  },
+      #|  "diagnostics": [
+      #|    {
+      #|      "severity": "warning",
+      #|      "code": "empty-interface",
+      #|      "path": "empty.mbti",
+      #|      "message": "interface file has no public API items"
+      #|    }
+      #|  ]
+      #|}
+      #|
+    ),
+  )
+}
+
+///|
+test "render markdown snapshot inventory" {
+  let snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file(
+      "pkg.generated.mbti",
+      (
+        #|pub fn render(String) -> String
+        #|pub struct Options {
+        #|  mode : String
+        #|}
+      ),
+    ),
+    @moonguard.api_file("empty.mbti", ""),
+  ])
+  inspect(
+    @moonguard.render_markdown_snapshot_inventory(snapshot),
+    content=(
+      #|# MoonGuard API Snapshot Inventory
+      #|
+      #|- Items: 3
+      #|- Diagnostics: 1 (errors 0, warnings 1, infos 0)
+      #|
+      #|## Item Kinds
+      #|
+      #|| Kind | Count |
+      #|| --- | --- |
+      #|| field | 1 |
+      #|| fn | 1 |
+      #|| struct | 1 |
+      #|
+      #|## Diagnostics
+      #|
+      #|| Severity | Code | Path | Message |
+      #|| --- | --- | --- | --- |
+      #|| warning | empty-interface | `empty.mbti` | interface file has no public API items |
+      #|
+      #|
+    ),
+  )
+}
+
+///|
+test "render json snapshot inventory" {
+  let snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file("pkg.generated.mbti", "pub fn parse(String) -> Unit"),
+  ])
+  inspect(
+    @moonguard.render_json_snapshot_inventory(snapshot),
+    content=(
+      #|{
+      #|  "item_count": 1,
+      #|  "kind_counts": [
+      #|    {
+      #|      "kind": "fn",
+      #|      "count": 1
+      #|    }
+      #|  ],
+      #|  "diagnostic_summary": {
+      #|    "total": 0,
+      #|    "errors": 0,
+      #|    "warnings": 0,
+      #|    "infos": 0
+      #|  },
+      #|  "diagnostics": []
+      #|}
+      #|
+    ),
+  )
+}
+
+///|
+test "render json snapshot inventory for empty snapshot" {
+  let snapshot = @moonguard.build_api_snapshot([])
+  inspect(
+    @moonguard.render_json_snapshot_inventory(snapshot),
+    content=(
+      #|{
+      #|  "item_count": 0,
+      #|  "kind_counts": [],
+      #|  "diagnostic_summary": {
+      #|    "total": 1,
+      #|    "errors": 0,
+      #|    "warnings": 1,
+      #|    "infos": 0
+      #|  },
+      #|  "diagnostics": [
+      #|    {
+      #|      "severity": "warning",
+      #|      "code": "empty-file-list",
+      #|      "path": "",
+      #|      "message": "no interface files were provided"
+      #|    }
+      #|  ]
+      #|}
+      #|
+    ),
+  )
+}
+
+///|
+test "render markdown snapshot inventory for empty snapshot" {
+  let snapshot = @moonguard.build_api_snapshot([])
+  inspect(
+    @moonguard.render_markdown_snapshot_inventory(snapshot),
+    content=(
+      #|# MoonGuard API Snapshot Inventory
+      #|
+      #|- Items: 0
+      #|- Diagnostics: 1 (errors 0, warnings 1, infos 0)
+      #|
+      #|## Item Kinds
+      #|
+      #|No public API items detected.
+      #|
+      #|## Diagnostics
+      #|
+      #|| Severity | Code | Path | Message |
+      #|| --- | --- | --- | --- |
+      #|| warning | empty-file-list | `` | no interface files were provided |
+      #|
+      #|
+    ),
+  )
+}
+
+///|
+test "render json snapshot inventory with duplicate diagnostics" {
+  let snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file(
+      "pkg.generated.mbti",
+      (
+        #|pub fn render(String) -> String
+        #|pub fn render(String) -> String
+      ),
+    ),
+  ])
+  let json = @moonguard.render_json_snapshot_inventory(snapshot)
+  assert_true(json.contains("\"item_count\": 2"))
+  assert_true(json.contains("\"errors\": 1"))
+  assert_true(json.contains("\"code\": \"duplicate-symbol\""))
+  assert_true(
+    json.contains(
+      "duplicate API item 'fn pkg.generated.mbti::render' appears 2 times",
+    ),
+  )
+}
+
+///|
+test "package comparison carries duplicate diagnostics" {
+  let comparison = @moonguard.compare_api_file_sets(
+    [
+      @moonguard.api_file(
+        "pkg.generated.mbti",
+        (
+          #|pub fn render(String) -> String
+          #|pub fn render(String) -> String
+        ),
+      ),
+    ],
+    [
+      @moonguard.api_file(
+        "pkg.generated.mbti",
+        (
+          #|pub fn render(String) -> String
+        ),
+      ),
+    ],
+  )
+  inspect(comparison.old_snapshot.items.length(), content="2")
+  inspect(comparison.new_snapshot.items.length(), content="1")
+  inspect(comparison.diagnostics.length(), content="1")
+  inspect(comparison.diagnostic_summary.errors, content="1")
+  assert_true(@moonguard.diagnostics_have_errors(comparison.diagnostics))
+}
+
+///|
+test "package comparison can be filtered after comparison" {
+  let comparison = @moonguard.compare_api_file_sets(
+    [
+      @moonguard.api_file(
+        "pkg.generated.mbti",
+        (
+          #|pub fn render(String) -> String
+        ),
+      ),
+    ],
+    [
+      @moonguard.api_file(
+        "pkg.generated.mbti",
+        (
+          #|pub fn debug_tmp() -> Unit
+          #|pub fn render(String, Options) -> String
+        ),
+      ),
+    ],
+  )
+  let filtered = @moonguard.filter_report(
+    comparison.report,
+    (
+      #|ignore fn pkg.generated.mbti::debug_tmp
+      #|ignore fn pkg.generated.mbti::render
+    ),
+  )
+  assert_true(filtered.recommendation == @moonguard.Patch)
+  inspect(filtered.changes.length(), content="0")
+}
+
+///|
+test "count items by kind returns empty for empty items" {
+  let counts = @moonguard.count_items_by_kind([])
+  inspect(counts.length(), content="0")
+}
+
+///|
+test "merge diagnostics preserves order" {
+  let left = @moonguard.build_api_snapshot([
+    @moonguard.api_file("left-empty.mbti", ""),
+  ])
+  let right = @moonguard.build_api_snapshot([
+    @moonguard.api_file("right-empty.mbti", ""),
+  ])
+  let merged = @moonguard.merge_diagnostics(left.diagnostics, right.diagnostics)
+  inspect(merged.length(), content="2")
+  inspect(merged[0].path, content="left-empty.mbti")
+  inspect(merged[1].path, content="right-empty.mbti")
+}
+
+///|
+test "diagnostics have errors distinguishes warnings from errors" {
+  let warning_snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file("warning-only.mbti", ""),
+  ])
+  assert_true(!@moonguard.diagnostics_have_errors(warning_snapshot.diagnostics))
+  assert_true(warning_snapshot.diagnostics[0].severity == "warning")
+  inspect(warning_snapshot.diagnostics.length(), content="1")
+  inspect(warning_snapshot.diagnostics[0].code, content="empty-interface")
+  inspect(warning_snapshot.diagnostics[0].path, content="warning-only.mbti")
+  let error_snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file("", "pub fn broken() -> Unit"),
+  ])
+  assert_true(@moonguard.diagnostics_have_errors(error_snapshot.diagnostics))
+  inspect(error_snapshot.diagnostics.length(), content="1")
+  inspect(error_snapshot.diagnostics[0].code, content="empty-path")
+  inspect(error_snapshot.diagnostics[0].severity, content="error")
+  inspect(error_snapshot.diagnostics[0].path, content="")
+  inspect(
+    error_snapshot.diagnostics[0].message,
+    content="interface file path must not be empty",
+  )
+}
+
+///|
+test "compare api snapshots merges diagnostics from both sides" {
+  let old_snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file("old-empty.mbti", ""),
+  ])
+  let new_snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file("new-empty.mbti", ""),
+  ])
+  let comparison = @moonguard.compare_api_snapshots(old_snapshot, new_snapshot)
+  inspect(comparison.diagnostics.length(), content="2")
+  inspect(comparison.diagnostics[0].path, content="old-empty.mbti")
+  inspect(comparison.diagnostics[1].path, content="new-empty.mbti")
+  inspect(comparison.diagnostic_summary.total, content="2")
+  inspect(comparison.diagnostic_summary.warnings, content="2")
+  assert_true(comparison.report.recommendation == @moonguard.Patch)
+}
+
+///|
+test "render markdown package report without diagnostics" {
+  let report = @moonguard.diff_interfaces(
+    (
+      #|pub fn render(String) -> String
+    ),
+    (
+      #|pub fn render(String) -> String
+    ),
+  )
+  inspect(
+    @moonguard.render_markdown_package_report(report, []),
+    content=(
+      #|# MoonGuard Package API Compatibility Report
+      #|
+      #|- Recommendation: **patch**
+      #|- Changes: 0
+      #|- Major changes: 0
+      #|- Minor changes: 0
+      #|- Patch changes: 0
+      #|- Added/Removed/Changed: 0/0/0
+      #|- Diagnostics: 0 (errors 0, warnings 0, infos 0)
+      #|
+      #|No public API changes detected.
+      #|
+    ),
+  )
+}
+
+///|
+test "render json package report without diagnostics" {
+  let report = @moonguard.diff_interfaces("", "")
+  inspect(
+    @moonguard.render_json_package_report(report, []),
+    content=(
+      #|{
+      #|  "report": {
+      #|    "recommendation": "patch",
+      #|    "change_count": 0,
+      #|    "summary": {
+      #|      "major": 0,
+      #|      "minor": 0,
+      #|      "patch": 0
+      #|    },
+      #|    "changes": []
+      #|  },
+      #|  "diagnostic_summary": {
+      #|    "total": 0,
+      #|    "errors": 0,
+      #|    "warnings": 0,
+      #|    "infos": 0
+      #|  },
+      #|  "diagnostics": []
+      #|}
+      #|
+    ),
+  )
+}
+
+///|
+test "render markdown snapshot inventory without diagnostics" {
+  let snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file("pkg.generated.mbti", "pub fn render(String) -> String"),
+  ])
+  inspect(
+    @moonguard.render_markdown_snapshot_inventory(snapshot),
+    content=(
+      #|# MoonGuard API Snapshot Inventory
+      #|
+      #|- Items: 1
+      #|- Diagnostics: 0 (errors 0, warnings 0, infos 0)
+      #|
+      #|## Item Kinds
+      #|
+      #|| Kind | Count |
+      #|| --- | --- |
+      #|| fn | 1 |
+      #|
+      #|
+    ),
+  )
+}
+
+///|
 test "render markdown report" {
   let report = @moonguard.diff_interfaces(
     (

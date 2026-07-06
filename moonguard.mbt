@@ -65,6 +65,61 @@ pub struct IgnoreParseResult {
 } derive(Eq, Debug)
 
 ///|
+pub struct ApiFile {
+  path : String
+  text : String
+} derive(Eq, Debug)
+
+///|
+pub struct ApiDiagnostic {
+  severity : String
+  code : String
+  path : String
+  message : String
+} derive(Eq, Debug)
+
+///|
+pub struct ApiSnapshot {
+  items : Array[ApiItem]
+  diagnostics : Array[ApiDiagnostic]
+} derive(Eq, Debug)
+
+///|
+pub struct ApiSummary {
+  total : Int
+  major : Int
+  minor : Int
+  patch : Int
+  added : Int
+  removed : Int
+  changed : Int
+} derive(Eq, Debug)
+
+///|
+pub struct DiagnosticSummary {
+  total : Int
+  errors : Int
+  warnings : Int
+  infos : Int
+} derive(Eq, Debug)
+
+///|
+pub struct ApiKindCount {
+  kind : String
+  count : Int
+} derive(Eq, Debug)
+
+///|
+pub struct ApiPackageComparison {
+  old_snapshot : ApiSnapshot
+  new_snapshot : ApiSnapshot
+  report : ApiReport
+  diagnostics : Array[ApiDiagnostic]
+  summary : ApiSummary
+  diagnostic_summary : DiagnosticSummary
+} derive(Eq, Debug)
+
+///|
 /// Parse a MoonBit interface file into a normalized public API list.
 pub fn parse_interface(text : String) -> Array[ApiItem] {
   let items : Array[ApiItem] = []
@@ -163,6 +218,98 @@ pub fn parse_interface_with_namespace(
 }
 
 ///|
+/// Create an interface file record for package-level snapshot APIs.
+pub fn api_file(path : String, text : String) -> ApiFile {
+  { path, text }
+}
+
+///|
+/// Build a package-level API snapshot from named interface files.
+pub fn build_api_snapshot(files : Array[ApiFile]) -> ApiSnapshot {
+  let items : Array[ApiItem] = []
+  let diagnostics : Array[ApiDiagnostic] = []
+  if files.is_empty() {
+    diagnostics.push(
+      make_diagnostic(
+        "warning", "empty-file-list", "", "no interface files were provided",
+      ),
+    )
+    return { items, diagnostics }
+  }
+  for file in files {
+    if file.path.length() == 0 {
+      diagnostics.push(
+        make_diagnostic(
+          "error", "empty-path", "", "interface file path must not be empty",
+        ),
+      )
+      continue
+    }
+    let file_items = parse_interface_with_namespace(file.text, file.path)
+    if file_items.is_empty() {
+      diagnostics.push(
+        make_diagnostic(
+          "warning",
+          "empty-interface",
+          file.path,
+          "interface file has no public API items",
+        ),
+      )
+    }
+    for item in file_items {
+      items.push(item)
+    }
+  }
+  for diagnostic in duplicate_item_diagnostics(items) {
+    diagnostics.push(diagnostic)
+  }
+  sort_items(items)
+  { items, diagnostics }
+}
+
+///|
+/// Diff two package-level snapshots.
+pub fn diff_api_snapshots(
+  old_snapshot : ApiSnapshot,
+  new_snapshot : ApiSnapshot,
+) -> ApiReport {
+  diff_items(old_snapshot.items, new_snapshot.items)
+}
+
+///|
+/// Compare two package-level snapshots and keep diagnostics beside the report.
+pub fn compare_api_snapshots(
+  old_snapshot : ApiSnapshot,
+  new_snapshot : ApiSnapshot,
+) -> ApiPackageComparison {
+  let diagnostics = merge_diagnostics(
+    old_snapshot.diagnostics,
+    new_snapshot.diagnostics,
+  )
+  let report = diff_api_snapshots(old_snapshot, new_snapshot)
+  {
+    old_snapshot,
+    new_snapshot,
+    report,
+    diagnostics,
+    summary: summarize_report(report),
+    diagnostic_summary: summarize_diagnostics(diagnostics),
+  }
+}
+
+///|
+/// Build snapshots from file sets and compare them as one package.
+pub fn compare_api_file_sets(
+  old_files : Array[ApiFile],
+  new_files : Array[ApiFile],
+) -> ApiPackageComparison {
+  compare_api_snapshots(
+    build_api_snapshot(old_files),
+    build_api_snapshot(new_files),
+  )
+}
+
+///|
 /// Compare two MoonBit public API snapshots.
 pub fn diff_interfaces(old_text : String, new_text : String) -> ApiReport {
   diff_items(parse_interface(old_text), parse_interface(new_text))
@@ -231,6 +378,102 @@ pub fn diff_items(
   }
   sort_changes(changes)
   { changes, recommendation: recommended_impact(changes) }
+}
+
+///|
+/// Count change kinds and impact levels in a report.
+pub fn summarize_report(report : ApiReport) -> ApiSummary {
+  let mut major = 0
+  let mut minor = 0
+  let mut patch = 0
+  let mut added = 0
+  let mut removed = 0
+  let mut changed = 0
+  for change in report.changes {
+    match change.impact {
+      Major => major += 1
+      Minor => minor += 1
+      Patch => patch += 1
+    }
+    match change.kind {
+      Added => added += 1
+      Removed => removed += 1
+      Changed => changed += 1
+    }
+  }
+  {
+    total: report.changes.length(),
+    major,
+    minor,
+    patch,
+    added,
+    removed,
+    changed,
+  }
+}
+
+///|
+/// Return true when diagnostics include at least one error.
+pub fn diagnostics_have_errors(diagnostics : Array[ApiDiagnostic]) -> Bool {
+  for diagnostic in diagnostics {
+    if diagnostic.severity == "error" {
+      return true
+    }
+  }
+  false
+}
+
+///|
+/// Count diagnostics by severity.
+pub fn summarize_diagnostics(
+  diagnostics : Array[ApiDiagnostic],
+) -> DiagnosticSummary {
+  let mut errors = 0
+  let mut warnings = 0
+  let mut infos = 0
+  for diagnostic in diagnostics {
+    if diagnostic.severity == "error" {
+      errors += 1
+    } else if diagnostic.severity == "warning" {
+      warnings += 1
+    } else if diagnostic.severity == "info" {
+      infos += 1
+    }
+  }
+  { total: diagnostics.length(), errors, warnings, infos }
+}
+
+///|
+/// Count API items by kind for package-level diagnostics and reporting.
+pub fn count_items_by_kind(items : Array[ApiItem]) -> Array[ApiKindCount] {
+  let counts : Array[ApiKindCount] = []
+  for item in items {
+    match find_kind_count_index(counts, item.kind) {
+      Some(index) => {
+        let old = counts[index]
+        counts[index] = { kind: old.kind, count: old.count + 1 }
+      }
+      None => counts.push({ kind: item.kind, count: 1 })
+    }
+  }
+  sort_kind_counts(counts)
+  counts
+}
+
+///|
+/// Merge diagnostics from two snapshots.
+pub fn merge_diagnostics(
+  left : Array[ApiDiagnostic],
+  right : Array[ApiDiagnostic],
+) -> Array[ApiDiagnostic] {
+  let diagnostics : Array[ApiDiagnostic] = []
+  for diagnostic in left {
+    diagnostics.push(diagnostic)
+  }
+  for diagnostic in right {
+    diagnostics.push(diagnostic)
+  }
+  diagnostics
 }
 
 ///|
@@ -326,6 +569,130 @@ pub fn render_json_check_result(
   write_json_indent(out, 2)
   out.write("\"version_check\": ")
   write_json_version_check_object(out, check, 2)
+  out.write("\n")
+  out.write("}\n")
+  out.to_string()
+}
+
+///|
+/// Render a package-level Markdown report with summary and diagnostics.
+pub fn render_markdown_package_report(
+  report : ApiReport,
+  diagnostics : Array[ApiDiagnostic],
+) -> String {
+  let out = StringBuilder()
+  let summary = summarize_report(report)
+  let diagnostic_summary = summarize_diagnostics(diagnostics)
+  out.write("# MoonGuard Package API Compatibility Report\n\n")
+  out.write("- Recommendation: **")
+  out.write(impact_label(report.recommendation))
+  out.write("**\n")
+  out.write("- Changes: ")
+  out.write(summary.total.to_string())
+  out.write("\n")
+  out.write("- Major changes: ")
+  out.write(summary.major.to_string())
+  out.write("\n")
+  out.write("- Minor changes: ")
+  out.write(summary.minor.to_string())
+  out.write("\n")
+  out.write("- Patch changes: ")
+  out.write(summary.patch.to_string())
+  out.write("\n")
+  out.write("- Added/Removed/Changed: ")
+  out.write(summary.added.to_string())
+  out.write("/")
+  out.write(summary.removed.to_string())
+  out.write("/")
+  out.write(summary.changed.to_string())
+  out.write("\n")
+  out.write("- Diagnostics: ")
+  out.write(diagnostic_summary.total.to_string())
+  out.write(" (errors ")
+  out.write(diagnostic_summary.errors.to_string())
+  out.write(", warnings ")
+  out.write(diagnostic_summary.warnings.to_string())
+  out.write(", infos ")
+  out.write(diagnostic_summary.infos.to_string())
+  out.write(")\n\n")
+  write_markdown_diagnostics(out, diagnostics)
+  write_markdown_changes(out, report.changes)
+  out.to_string()
+}
+
+///|
+/// Render a package-level JSON report with diagnostics.
+pub fn render_json_package_report(
+  report : ApiReport,
+  diagnostics : Array[ApiDiagnostic],
+) -> String {
+  let out = StringBuilder()
+  out.write("{\n")
+  write_json_indent(out, 2)
+  out.write("\"report\": ")
+  write_json_report_object(out, report, 2)
+  out.write(",\n")
+  write_json_indent(out, 2)
+  out.write("\"diagnostic_summary\": ")
+  write_json_diagnostic_summary_object(
+    out,
+    summarize_diagnostics(diagnostics),
+    2,
+  )
+  out.write(",\n")
+  write_json_indent(out, 2)
+  out.write("\"diagnostics\": ")
+  write_json_diagnostics_array(out, diagnostics, 2)
+  out.write("\n")
+  out.write("}\n")
+  out.to_string()
+}
+
+///|
+/// Render a Markdown inventory for one package API snapshot.
+pub fn render_markdown_snapshot_inventory(snapshot : ApiSnapshot) -> String {
+  let out = StringBuilder()
+  let diagnostic_summary = summarize_diagnostics(snapshot.diagnostics)
+  out.write("# MoonGuard API Snapshot Inventory\n\n")
+  out.write("- Items: ")
+  out.write(snapshot.items.length().to_string())
+  out.write("\n")
+  out.write("- Diagnostics: ")
+  out.write(diagnostic_summary.total.to_string())
+  out.write(" (errors ")
+  out.write(diagnostic_summary.errors.to_string())
+  out.write(", warnings ")
+  out.write(diagnostic_summary.warnings.to_string())
+  out.write(", infos ")
+  out.write(diagnostic_summary.infos.to_string())
+  out.write(")\n\n")
+  write_markdown_kind_counts(out, count_items_by_kind(snapshot.items))
+  write_markdown_diagnostics(out, snapshot.diagnostics)
+  out.to_string()
+}
+
+///|
+/// Render a JSON inventory for one package API snapshot.
+pub fn render_json_snapshot_inventory(snapshot : ApiSnapshot) -> String {
+  let out = StringBuilder()
+  out.write("{\n")
+  write_json_number_field(out, "item_count", snapshot.items.length(), 2)
+  out.write(",\n")
+  write_json_indent(out, 2)
+  out.write("\"kind_counts\": ")
+  write_json_kind_counts_array(out, count_items_by_kind(snapshot.items), 2)
+  out.write(",\n")
+  write_json_indent(out, 2)
+  out.write("\"diagnostic_summary\": ")
+  write_json_diagnostic_summary_object(
+    out,
+    summarize_diagnostics(snapshot.diagnostics),
+    2,
+  )
+  out.write(",\n")
+  write_json_indent(out, 2)
+  out.write("\"diagnostics\": ")
+  write_json_diagnostics_array(out, snapshot.diagnostics, 2)
   out.write("\n")
   out.write("}\n")
   out.to_string()
@@ -776,6 +1143,77 @@ fn wildcard_matches(pattern : String, value : String) -> Bool {
         let suffix = pattern[star + 1:]
         value.has_prefix(prefix) && value.has_suffix(suffix)
       }
+  }
+}
+
+///|
+fn make_diagnostic(
+  severity : String,
+  code : String,
+  path : String,
+  message : String,
+) -> ApiDiagnostic {
+  { severity, code, path, message }
+}
+
+///|
+fn duplicate_item_diagnostics(items : Array[ApiItem]) -> Array[ApiDiagnostic] {
+  let diagnostics : Array[ApiDiagnostic] = []
+  for i in 0..<items.length() {
+    let item = items[i]
+    if has_duplicate_before(items, i, item) {
+      continue
+    }
+    let count = count_duplicate_items(items, item)
+    if count > 1 {
+      diagnostics.push(
+        make_diagnostic(
+          "error",
+          "duplicate-symbol",
+          diagnostic_path_from_item(item),
+          "duplicate API item '\{item.kind} \{item.name}' appears \{count} times",
+        ),
+      )
+    }
+  }
+  diagnostics
+}
+
+///|
+fn has_duplicate_before(
+  items : Array[ApiItem],
+  end : Int,
+  item : ApiItem,
+) -> Bool {
+  for i in 0..<end {
+    if same_api_identity(items[i], item) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn count_duplicate_items(items : Array[ApiItem], item : ApiItem) -> Int {
+  let mut count = 0
+  for candidate in items {
+    if same_api_identity(candidate, item) {
+      count += 1
+    }
+  }
+  count
+}
+
+///|
+fn same_api_identity(left : ApiItem, right : ApiItem) -> Bool {
+  left.kind == right.kind && left.name == right.name
+}
+
+///|
+fn diagnostic_path_from_item(item : ApiItem) -> String {
+  match item.name.find("::") {
+    Some(index) => item.name[:index].to_owned()
+    None => ""
   }
 }
 
@@ -1578,6 +2016,21 @@ fn sort_changes(changes : Array[ApiChange]) -> Unit {
 }
 
 ///|
+fn sort_kind_counts(counts : Array[ApiKindCount]) -> Unit {
+  counts.sort_by((a, b) => a.kind.lexical_compare(b.kind))
+}
+
+///|
+fn find_kind_count_index(counts : Array[ApiKindCount], kind : String) -> Int? {
+  for i in 0..<counts.length() {
+    if counts[i].kind == kind {
+      return Some(i)
+    }
+  }
+  None
+}
+
+///|
 fn compare_item_key(a : ApiItem, b : ApiItem) -> Int {
   let kind_cmp = a.kind.lexical_compare(b.kind)
   if kind_cmp != 0 {
@@ -1653,6 +2106,79 @@ fn change_details(change : ApiChange) -> String {
 }
 
 ///|
+fn write_markdown_diagnostics(
+  out : StringBuilder,
+  diagnostics : Array[ApiDiagnostic],
+) -> Unit {
+  if diagnostics.is_empty() {
+    return
+  }
+  out.write("## Diagnostics\n\n")
+  out.write("| Severity | Code | Path | Message |\n")
+  out.write("| --- | --- | --- | --- |\n")
+  for diagnostic in diagnostics {
+    out.write("| ")
+    out.write(escape_markdown_cell(diagnostic.severity))
+    out.write(" | ")
+    out.write(escape_markdown_cell(diagnostic.code))
+    out.write(" | `")
+    out.write(escape_markdown_cell(diagnostic.path))
+    out.write("` | ")
+    out.write(escape_markdown_cell(diagnostic.message))
+    out.write(" |\n")
+  }
+  out.write("\n")
+}
+
+///|
+fn write_markdown_changes(
+  out : StringBuilder,
+  changes : Array[ApiChange],
+) -> Unit {
+  if changes.is_empty() {
+    out.write("No public API changes detected.\n")
+    return
+  }
+  out.write("| Impact | Change | Symbol | Details |\n")
+  out.write("| --- | --- | --- | --- |\n")
+  for change in changes {
+    out.write("| ")
+    out.write(impact_label(change.impact))
+    out.write(" | ")
+    out.write(change_kind_label(change.kind))
+    out.write(" | `")
+    out.write(change.item_kind)
+    out.write(" ")
+    out.write(change.name)
+    out.write("` | ")
+    out.write(change_details(change))
+    out.write(" |\n")
+  }
+}
+
+///|
+fn write_markdown_kind_counts(
+  out : StringBuilder,
+  counts : Array[ApiKindCount],
+) -> Unit {
+  out.write("## Item Kinds\n\n")
+  if counts.is_empty() {
+    out.write("No public API items detected.\n\n")
+    return
+  }
+  out.write("| Kind | Count |\n")
+  out.write("| --- | --- |\n")
+  for count in counts {
+    out.write("| ")
+    out.write(escape_markdown_cell(count.kind))
+    out.write(" | ")
+    out.write(count.count.to_string())
+    out.write(" |\n")
+  }
+  out.write("\n")
+}
+
+///|
 fn write_json_report_object(
   out : StringBuilder,
   report : ApiReport,
@@ -1676,6 +2202,107 @@ fn write_json_report_object(
   write_json_summary_field(out, report, indent + 2)
   out.write(",\n")
   write_json_changes_field(out, report.changes, indent + 2)
+  out.write("\n")
+  write_json_indent(out, indent)
+  out.write("}")
+}
+
+///|
+fn write_json_diagnostics_array(
+  out : StringBuilder,
+  diagnostics : Array[ApiDiagnostic],
+  indent : Int,
+) -> Unit {
+  out.write("[")
+  if diagnostics.is_empty() {
+    out.write("]")
+    return
+  }
+  out.write("\n")
+  for i in 0..<diagnostics.length() {
+    if i > 0 {
+      out.write(",\n")
+    }
+    write_json_diagnostic(out, diagnostics[i], indent + 2)
+  }
+  out.write("\n")
+  write_json_indent(out, indent)
+  out.write("]")
+}
+
+///|
+fn write_json_kind_counts_array(
+  out : StringBuilder,
+  counts : Array[ApiKindCount],
+  indent : Int,
+) -> Unit {
+  out.write("[")
+  if counts.is_empty() {
+    out.write("]")
+    return
+  }
+  out.write("\n")
+  for i in 0..<counts.length() {
+    if i > 0 {
+      out.write(",\n")
+    }
+    write_json_kind_count(out, counts[i], indent + 2)
+  }
+  out.write("\n")
+  write_json_indent(out, indent)
+  out.write("]")
+}
+
+///|
+fn write_json_kind_count(
+  out : StringBuilder,
+  count : ApiKindCount,
+  indent : Int,
+) -> Unit {
+  write_json_indent(out, indent)
+  out.write("{\n")
+  write_json_string_field(out, "kind", count.kind, indent + 2)
+  out.write(",\n")
+  write_json_number_field(out, "count", count.count, indent + 2)
+  out.write("\n")
+  write_json_indent(out, indent)
+  out.write("}")
+}
+
+///|
+fn write_json_diagnostic_summary_object(
+  out : StringBuilder,
+  summary : DiagnosticSummary,
+  indent : Int,
+) -> Unit {
+  out.write("{\n")
+  write_json_number_field(out, "total", summary.total, indent + 2)
+  out.write(",\n")
+  write_json_number_field(out, "errors", summary.errors, indent + 2)
+  out.write(",\n")
+  write_json_number_field(out, "warnings", summary.warnings, indent + 2)
+  out.write(",\n")
+  write_json_number_field(out, "infos", summary.infos, indent + 2)
+  out.write("\n")
+  write_json_indent(out, indent)
+  out.write("}")
+}
+
+///|
+fn write_json_diagnostic(
+  out : StringBuilder,
+  diagnostic : ApiDiagnostic,
+  indent : Int,
+) -> Unit {
+  write_json_indent(out, indent)
+  out.write("{\n")
+  write_json_string_field(out, "severity", diagnostic.severity, indent + 2)
+  out.write(",\n")
+  write_json_string_field(out, "code", diagnostic.code, indent + 2)
+  out.write(",\n")
+  write_json_string_field(out, "path", diagnostic.path, indent + 2)
+  out.write(",\n")
+  write_json_string_field(out, "message", diagnostic.message, indent + 2)
   out.write("\n")
   write_json_indent(out, indent)
   out.write("}")

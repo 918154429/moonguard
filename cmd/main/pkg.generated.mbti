@@ -15,6 +15,8 @@ type CheckOptions derive(Eq, @debug.Debug)
 
 type CliResult derive(Eq, @debug.Debug)
 
+type PackageReportResult derive(Eq, @debug.Debug)
+
 type ReportOptions derive(Eq, @debug.Debug)
 
 // Type aliases

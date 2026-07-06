@@ -144,6 +144,178 @@ test "run_args ignores js process argv prefix for report-dir" {
 }
 
 ///|
+test "read_dir_snapshot rejects directories without mbti files" {
+  match read_dir_snapshot("empty-dir", [], "old") {
+    Ok(_) => fail("expected empty directory error")
+    Err(message) =>
+      inspect(
+        message,
+        content="error: no .mbti files found in old interface directory 'empty-dir'",
+      )
+  }
+}
+
+///|
+test "package result renders warning diagnostics without failing" {
+  let report = @moonguard.diff_interfaces("", "")
+  let snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file("empty.mbti", ""),
+  ])
+  let result = package_result(report, snapshot.diagnostics, "markdown")
+  inspect(result.exit_code, content="0")
+  assert_true(
+    result.output.contains("# MoonGuard Package API Compatibility Report"),
+  )
+  assert_true(result.output.contains("empty-interface"))
+}
+
+///|
+test "package result fails error diagnostics" {
+  let report = @moonguard.diff_interfaces("", "")
+  let snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file("", "pub fn render() -> Unit"),
+  ])
+  let result = package_result(report, snapshot.diagnostics, "json")
+  inspect(result.exit_code, content="2")
+  assert_true(result.output.contains("\"diagnostics\""))
+  assert_true(result.output.contains("\"code\": \"empty-path\""))
+}
+
+///|
+test "inventory command validates arguments" {
+  let missing = run_args_result(["moonguard", "inventory-dir"])
+  inspect(missing.output, content="error: inventory-dir requires DIR")
+  inspect(missing.exit_code, content="2")
+  let unsupported = run_args_result([
+    "moonguard", "inventory-dir", "fixtures", "--ignore-file", "rules.txt",
+  ])
+  inspect(
+    unsupported.output,
+    content="error: inventory-dir does not support --ignore-file",
+  )
+  inspect(unsupported.exit_code, content="2")
+}
+
+///|
+test "inventory result renders markdown and json" {
+  let snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file("pkg.generated.mbti", "pub fn render(String) -> String"),
+  ])
+  let markdown = inventory_result(snapshot, "markdown")
+  inspect(markdown.exit_code, content="0")
+  assert_true(markdown.output.contains("# MoonGuard API Snapshot Inventory"))
+  assert_true(markdown.output.contains("| fn | 1 |"))
+  let json = inventory_result(snapshot, "json")
+  inspect(json.exit_code, content="0")
+  assert_true(json.output.contains("\"item_count\": 1"))
+  assert_true(json.output.contains("\"kind_counts\""))
+}
+
+///|
+test "inventory result fails duplicate diagnostics" {
+  let snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file(
+      "pkg.generated.mbti",
+      (
+        #|pub fn render(String) -> String
+        #|pub fn render(String) -> String
+      ),
+    ),
+  ])
+  let result = inventory_result(snapshot, "markdown")
+  inspect(result.exit_code, content="2")
+  assert_true(result.output.contains("duplicate-symbol"))
+  assert_true(result.output.contains("errors 1"))
+}
+
+///|
+test "inventory command reports non-js list error" {
+  let result = run_args_result(["moonguard", "inventory-dir", "fixtures"])
+  inspect(
+    result.output,
+    content="error: cannot list interface directory 'fixtures': directory input currently requires the JS backend; run with `moon run --target js cmd/main -- report-dir old_dir new_dir`",
+  )
+  inspect(result.exit_code, content="2")
+}
+
+///|
+test "package result json includes diagnostic summary" {
+  let report = @moonguard.diff_interfaces("", "")
+  let snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file("empty.mbti", ""),
+  ])
+  let result = package_result(report, snapshot.diagnostics, "json")
+  inspect(result.exit_code, content="0")
+  assert_true(result.output.contains("\"diagnostic_summary\""))
+  assert_true(result.output.contains("\"warnings\": 1"))
+  assert_true(result.output.contains("\"empty-interface\""))
+}
+
+///|
+test "report options accept md alias and ignore file" {
+  match
+    parse_report_options(
+      [
+        "report", "old.mbti", "new.mbti", "--format", "md", "--ignore-file", "rules.txt",
+      ][:],
+      3,
+    ) {
+    Err(message) => fail(message)
+    Ok(options) => {
+      inspect(options.format, content="markdown")
+      inspect(options.ignore_file, content="rules.txt")
+    }
+  }
+}
+
+///|
+test "check options accept json and ignore file" {
+  match
+    parse_check_options(
+      [
+        "check", "old.mbti", "new.mbti", "--current", "1.2.3", "--next", "2.0.0",
+        "--format", "json", "--ignore-file", "rules.txt",
+      ][:],
+      3,
+    ) {
+    Err(message) => fail(message)
+    Ok(options) => {
+      inspect(options.current, content="1.2.3")
+      inspect(options.next, content="2.0.0")
+      inspect(options.format, content="json")
+      inspect(options.ignore_file, content="rules.txt")
+    }
+  }
+}
+
+///|
+test "option parsers reject missing values and unknown options" {
+  match
+    parse_report_options(["report", "old.mbti", "new.mbti", "--format"][:], 3) {
+    Ok(_) => fail("expected missing format value error")
+    Err(message) =>
+      inspect(message, content="error: --format requires markdown or json")
+  }
+  match
+    parse_report_options(["report", "old.mbti", "new.mbti", "--bad"][:], 3) {
+    Ok(_) => fail("expected unknown report option error")
+    Err(message) => inspect(message, content="error: unknown option '--bad'")
+  }
+  match
+    parse_check_options(
+      ["check", "old.mbti", "new.mbti", "--current", "1.2.3", "--next"][:],
+      3,
+    ) {
+    Ok(_) => fail("expected missing next value error")
+    Err(message) =>
+      inspect(
+        message,
+        content="error: --next requires a major.minor.patch version",
+      )
+  }
+}
+
+///|
 test "check command requires versions before reading files" {
   let result = run_args_result(["moonguard", "check", "old.mbti", "new.mbti"])
   inspect(
@@ -209,6 +381,7 @@ test "help mentions file and text modes" {
   let help = run_args(["moonguard", "--help"])
   assert_true(help.contains("report old.mbti new.mbti"))
   assert_true(help.contains("report-dir old_dir new_dir"))
+  assert_true(help.contains("inventory-dir dir"))
   assert_true(help.contains("check old.mbti new.mbti"))
   assert_true(help.contains("report-text"))
   assert_true(help.contains("--format markdown|json"))
