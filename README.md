@@ -96,10 +96,15 @@ Use a config file for repeated CI defaults:
 format = json
 current = 0.1.0
 next = 1.0.0
+baseline = fixtures/old.mbti
+target = fixtures/new.mbti
+baseline_dir = fixtures/dir-old
+target_dir = fixtures/dir-new
 ```
 
 ```sh
-moon run --target js cmd/main -- check fixtures/old.mbti fixtures/new.mbti --config fixtures/moonguard-ci.conf
+moon run --target js cmd/main -- report --config fixtures/moonguard-ci.conf
+moon run --target js cmd/main -- check --config fixtures/moonguard-ci.conf
 ```
 
 Compare package directories and inspect a generated interface inventory:
@@ -108,6 +113,9 @@ Compare package directories and inspect a generated interface inventory:
 moon run --target js cmd/main -- report-dir fixtures/dir-old fixtures/dir-new
 moon run --target js cmd/main -- check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
 moon run --target js cmd/main -- inventory-dir fixtures/dir-new --format json
+moon run --target js cmd/main -- report-dir --config fixtures/moonguard-ci.conf
+moon run --target js cmd/main -- check-dir --config fixtures/moonguard-ci.conf
+moon run --target js cmd/main -- inventory-dir --config fixtures/moonguard-ci.conf
 ```
 
 Ignore files filter report changes without changing the parsed API model:
@@ -163,19 +171,23 @@ moon info
 moon check
 moon test
 moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti --format json
-moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti --config fixtures/moonguard-ci.conf
+moon run --target js cmd/main -- report --config fixtures/moonguard-ci.conf
 moon run --target js cmd/main -- report-dir fixtures/dir-old fixtures/dir-new
+moon run --target js cmd/main -- report-dir --config fixtures/moonguard-ci.conf
 moon run --target js cmd/main -- check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
-moon run --target js cmd/main -- inventory-dir fixtures/dir-new
+moon run --target js cmd/main -- check-dir --config fixtures/moonguard-ci.conf
+moon run --target js cmd/main -- inventory-dir --config fixtures/moonguard-ci.conf
 node _build/js/debug/build/cmd/main/main.js check fixtures/old.mbti fixtures/new.mbti --current 0.1.0 --next 0.2.0
+node _build/js/debug/build/cmd/main/main.js check --config fixtures/moonguard-ci.conf
 node _build/js/debug/build/cmd/main/main.js check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
+node _build/js/debug/build/cmd/main/main.js check-dir --config fixtures/moonguard-ci.conf
 ```
 
 Generated `pkg.generated.mbti` files are kept in the repository so interface
 changes are reviewable after `moon info`.
 
 Competition source-line tracking counts repository `.mbt` source files and
-excludes generated `_build` output. The current tracked source total is 5873
+excludes generated `_build` output. The current tracked source total is 6525
 lines, so future code changes should keep the project above the 5000-line
 threshold.
 

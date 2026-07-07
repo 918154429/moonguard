@@ -46,7 +46,7 @@ Implemented capabilities:
 - Parse simple ignore-rule files and filter accepted or experimental API
   changes from reports.
 - Parse simple CLI config files for shared `format`, `ignore_file`, `current`,
-  and `next` defaults.
+  `next`, `baseline`, `target`, `baseline_dir`, and `target_dir` defaults.
 - Build package snapshots from multiple `.mbti` files.
 - Compare package directories with file namespaces so same-named symbols in
   different files do not overwrite each other.
@@ -70,11 +70,13 @@ moon run cmd/main -- report-text "pub fn old() -> Unit" "pub fn new() -> Unit"
 
 ```sh
 moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti --format json
-moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti --config fixtures/moonguard-ci.conf
+moon run --target js cmd/main -- report --config fixtures/moonguard-ci.conf
 moon run --target js cmd/main -- check fixtures/old.mbti fixtures/new.mbti --current 0.1.0 --next 0.2.0
 moon run --target js cmd/main -- report-dir fixtures/dir-old fixtures/dir-new
+moon run --target js cmd/main -- report-dir --config fixtures/moonguard-ci.conf
 moon run --target js cmd/main -- check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
-moon run --target js cmd/main -- inventory-dir fixtures/dir-new --format json
+moon run --target js cmd/main -- check-dir --config fixtures/moonguard-ci.conf
+moon run --target js cmd/main -- inventory-dir --config fixtures/moonguard-ci.conf
 ```
 
 ## Architecture
@@ -145,7 +147,7 @@ Current tests cover:
 - JSON report rendering;
 - SemVer parsing and version-bump validation;
 - ignore-rule parsing and filtering;
-- config parsing and command-line override behavior;
+- config parsing, path defaults, and command-line override behavior;
 - package snapshot construction and diagnostics;
 - package report, package check, and inventory rendering;
 - CLI argument handling;
@@ -162,18 +164,22 @@ moon check
 moon test
 moon run cmd/main -- --version
 moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti --format json
-moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti --config fixtures/moonguard-ci.conf
+moon run --target js cmd/main -- report --config fixtures/moonguard-ci.conf
 moon run --target js cmd/main -- report-dir fixtures/dir-old fixtures/dir-new
+moon run --target js cmd/main -- report-dir --config fixtures/moonguard-ci.conf
 moon run --target js cmd/main -- check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
-moon run --target js cmd/main -- inventory-dir fixtures/dir-new
+moon run --target js cmd/main -- check-dir --config fixtures/moonguard-ci.conf
+moon run --target js cmd/main -- inventory-dir --config fixtures/moonguard-ci.conf
 node _build/js/debug/build/cmd/main/main.js check fixtures/old.mbti fixtures/new.mbti --current 0.1.0 --next 0.2.0
+node _build/js/debug/build/cmd/main/main.js check --config fixtures/moonguard-ci.conf
 node _build/js/debug/build/cmd/main/main.js check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
+node _build/js/debug/build/cmd/main/main.js check-dir --config fixtures/moonguard-ci.conf
 ```
 
 Current local result:
 
 ```text
-Total tests: 127, passed: 127, failed: 0.
+Total tests: 131, passed: 131, failed: 0.
 ```
 
 ## Known Limits
@@ -185,7 +191,7 @@ Total tests: 127, passed: 127, failed: 0.
   process exit status. The generated JS file does return the intended status
   when run directly with Node, so CI uses direct Node execution for strict
   failing `check` assertions.
-- The tracked `.mbt` source total is currently 5873 lines excluding `_build`.
+- The tracked `.mbt` source total is currently 6525 lines excluding `_build`.
   Future implementation slices should keep the project comfortably above the
   5000-line competition threshold.
 

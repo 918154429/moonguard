@@ -96,8 +96,10 @@ moon run cmd/main -- report-text "pub fn old() -> Unit" "pub fn new() -> Unit" [
 ```
 
 All report and check commands also accept `--config path`. Config files use
-simple `key = value` lines for `format`, `ignore_file`, `current`, and `next`.
-Command-line options override config defaults.
+simple `key = value` lines for `format`, `ignore_file`, `current`, `next`,
+`baseline`, `target`, `baseline_dir`, and `target_dir`. File and directory
+commands may omit positional paths when the corresponding config defaults are
+present. Command-line positional paths and options override config defaults.
 
 Important CLI detail:
 
@@ -143,7 +145,7 @@ Fixtures:
 Current local test result:
 
 ```text
-Total tests: 127, passed: 127, failed: 0.
+Total tests: 131, passed: 131, failed: 0.
 ```
 
 GitHub Actions should cover:
@@ -166,12 +168,16 @@ Run from the repository root:
 & 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' check
 & 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' test
 & 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti --format json
-& 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti --config fixtures/moonguard-ci.conf
+& 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' run --target js cmd/main -- report --config fixtures/moonguard-ci.conf
 & 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' run --target js cmd/main -- report-dir fixtures/dir-old fixtures/dir-new
+& 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' run --target js cmd/main -- report-dir --config fixtures/moonguard-ci.conf
 & 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' run --target js cmd/main -- check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
-& 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' run --target js cmd/main -- inventory-dir fixtures/dir-new
+& 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' run --target js cmd/main -- check-dir --config fixtures/moonguard-ci.conf
+& 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' run --target js cmd/main -- inventory-dir --config fixtures/moonguard-ci.conf
 node _build\js\debug\build\cmd\main\main.js check fixtures/old.mbti fixtures/new.mbti --current 0.1.0 --next 0.2.0
+node _build\js\debug\build\cmd\main\main.js check --config fixtures/moonguard-ci.conf
 node _build\js\debug\build\cmd\main\main.js check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
+node _build\js\debug\build\cmd\main\main.js check-dir --config fixtures/moonguard-ci.conf
 ```
 
 Check GitHub Actions:
@@ -188,7 +194,7 @@ gh run list --repo 918154429/moonguard --limit 5
 - Native file and directory input is not implemented; CLI file/directory mode
   is JS target only.
 - Source-line competition tracking counts repository `.mbt` files and excludes
-  generated `_build` output. Current tracked source total is 5873 lines, so
+  generated `_build` output. Current tracked source total is 6525 lines, so
   future implementation slices should keep a buffer above the 5000-line
   threshold.
 
