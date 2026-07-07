@@ -34,7 +34,7 @@ Implemented capabilities:
   `let`, and `const` declarations.
 - Track generated `.mbti` nested public surface such as struct fields, enum
   constructors, trait methods, generic methods, `suberror`, and `pub using`
-  exports.
+  type or trait exports.
 - Preserve unrecognized public declarations as `unknown`.
 - Detect added public API as `minor`.
 - Detect removed public API as `major`.
@@ -131,7 +131,7 @@ Current tests cover:
 
 - parsing public functions, structs, enums, traits, and aliases;
 - parsing generic functions, methods, impls, struct fields, enum constructors,
-  trait methods, `suberror`, and `pub using`;
+  trait methods, `suberror`, and `pub using` type or trait exports;
 - whitespace normalization;
 - trailing comment stripping;
 - added API detection;
@@ -168,7 +168,7 @@ node _build/js/debug/build/cmd/main/main.js check-dir fixtures/dir-old fixtures/
 Current local result:
 
 ```text
-Total tests: 119, passed: 119, failed: 0.
+Total tests: 120, passed: 120, failed: 0.
 ```
 
 ## Known Limits
@@ -180,7 +180,7 @@ Total tests: 119, passed: 119, failed: 0.
   process exit status. The generated JS file does return the intended status
   when run directly with Node, so CI uses direct Node execution for strict
   failing `check` assertions.
-- The tracked `.mbt` source total is currently 5421 lines excluding `_build`.
+- The tracked `.mbt` source total is currently 5455 lines excluding `_build`.
   Future implementation slices should keep the project comfortably above the
   5000-line competition threshold.
 

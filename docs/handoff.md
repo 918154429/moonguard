@@ -139,7 +139,7 @@ Fixtures:
 Current local test result:
 
 ```text
-Total tests: 119, passed: 119, failed: 0.
+Total tests: 120, passed: 120, failed: 0.
 ```
 
 GitHub Actions should cover:
@@ -182,7 +182,7 @@ gh run list --repo 918154429/moonguard --limit 5
 - Native file and directory input is not implemented; CLI file/directory mode
   is JS target only.
 - Source-line competition tracking counts repository `.mbt` files and excludes
-  generated `_build` output. Current tracked source total is 5421 lines, so
+  generated `_build` output. Current tracked source total is 5455 lines, so
   future implementation slices should keep a buffer above the 5000-line
   threshold.
 

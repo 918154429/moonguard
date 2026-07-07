@@ -1844,20 +1844,45 @@ test "parse using and suberror declarations" {
     (
       #|pub using @builtin {type ArrayView as View}
       #|pub using @builtin {type ArgsLoc}
+      #|pub using @builtin {trait Add}
+      #|pub using @debug {trait Debug}
       #|pub suberror Malformed {
       #|  Malformed(BytesView)
       #|}
     ),
   )
-  inspect(api.length(), content="4")
+  inspect(api.length(), content="6")
   inspect(api[0].kind, content="constructor")
   inspect(api[0].name, content="Malformed.Malformed")
   inspect(api[1].kind, content="suberror")
   inspect(api[1].name, content="Malformed")
   inspect(api[2].kind, content="using")
-  inspect(api[2].name, content="ArgsLoc")
+  inspect(api[2].name, content="Add")
   inspect(api[3].kind, content="using")
-  inspect(api[3].name, content="View")
+  inspect(api[3].name, content="ArgsLoc")
+  inspect(api[4].kind, content="using")
+  inspect(api[4].name, content="Debug")
+  inspect(api[5].kind, content="using")
+  inspect(api[5].name, content="View")
+}
+
+///|
+test "using trait exports do not collide as duplicate symbols" {
+  let snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file(
+      "prelude/pkg.generated.mbti",
+      (
+        #|pub using @builtin {trait Add}
+        #|pub using @builtin {trait Eq}
+        #|pub using @debug {trait Debug}
+      ),
+    ),
+  ])
+  inspect(snapshot.diagnostics.length(), content="0")
+  inspect(snapshot.items.length(), content="3")
+  inspect(snapshot.items[0].name, content="prelude/pkg.generated.mbti::Add")
+  inspect(snapshot.items[1].name, content="prelude/pkg.generated.mbti::Debug")
+  inspect(snapshot.items[2].name, content="prelude/pkg.generated.mbti::Eq")
 }
 
 ///|

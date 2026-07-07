@@ -16,7 +16,7 @@ engineering infrastructure for package authors and CI workflows.
   `let`, and `const` declarations.
 - Track common generated `.mbti` members including struct fields, enum
   constructors, trait methods, generic methods, `suberror`, and `pub using`
-  exports.
+  type or trait exports.
 - Classify public API changes:
   - added public API -> minor
   - removed public API -> major
@@ -161,7 +161,7 @@ Generated `pkg.generated.mbti` files are kept in the repository so interface
 changes are reviewable after `moon info`.
 
 Competition source-line tracking counts repository `.mbt` source files and
-excludes generated `_build` output. The current tracked source total is 5421
+excludes generated `_build` output. The current tracked source total is 5455
 lines, so future code changes should keep the project above the 5000-line
 threshold.
 

@@ -1851,16 +1851,27 @@ fn extract_using_name(signature : StringView) -> String {
     Some(body) =>
       match body.find(" as ") {
         Some(index) => extract_name(body.view(start_offset=index + 4).trim())
-        None => {
-          let body = if body.has_prefix("type ") {
-            body.view(start_offset=5).trim()
-          } else {
-            body
-          }
-          extract_name(body)
-        }
+        None => extract_name(using_export_body(body))
       }
     None => extract_name(signature)
+  }
+}
+
+///|
+fn using_export_body(body : StringView) -> StringView {
+  let body = body.trim()
+  if body.has_prefix("type ") {
+    body.view(start_offset=5).trim()
+  } else if body.has_prefix("trait ") {
+    body.view(start_offset=6).trim()
+  } else if body.has_prefix("struct ") {
+    body.view(start_offset=7).trim()
+  } else if body.has_prefix("enum ") {
+    body.view(start_offset=5).trim()
+  } else if body.has_prefix("suberror ") {
+    body.view(start_offset=9).trim()
+  } else {
+    body
   }
 }
 
