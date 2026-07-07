@@ -24,7 +24,8 @@ engineering infrastructure for package authors and CI workflows.
   - unchanged public API -> patch
 - Render Markdown and JSON compatibility reports for PR comments, release
   notes, and downstream tooling.
-- Validate whether a proposed SemVer bump satisfies the recommended impact.
+- Validate whether a proposed SemVer bump satisfies the recommended impact for
+  single-file or package-directory comparisons.
 - Filter accepted or experimental changes with simple ignore rules.
 - Compare package directories, detect duplicate symbols and directory
   diagnostics, and render snapshot inventories.
@@ -92,6 +93,7 @@ Compare package directories and inspect a generated interface inventory:
 
 ```sh
 moon run --target js cmd/main -- report-dir fixtures/dir-old fixtures/dir-new
+moon run --target js cmd/main -- check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
 moon run --target js cmd/main -- inventory-dir fixtures/dir-new --format json
 ```
 
@@ -114,6 +116,7 @@ JS-target command has built it:
 
 ```sh
 node _build/js/debug/build/cmd/main/main.js check fixtures/old.mbti fixtures/new.mbti --current 0.1.0 --next 0.2.0
+node _build/js/debug/build/cmd/main/main.js check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
 ```
 
 For quick demos without files, use `report-text`:
@@ -148,15 +151,17 @@ moon check
 moon test
 moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti --format json
 moon run --target js cmd/main -- report-dir fixtures/dir-old fixtures/dir-new
+moon run --target js cmd/main -- check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
 moon run --target js cmd/main -- inventory-dir fixtures/dir-new
 node _build/js/debug/build/cmd/main/main.js check fixtures/old.mbti fixtures/new.mbti --current 0.1.0 --next 0.2.0
+node _build/js/debug/build/cmd/main/main.js check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
 ```
 
 Generated `pkg.generated.mbti` files are kept in the repository so interface
 changes are reviewable after `moon info`.
 
 Competition source-line tracking counts repository `.mbt` source files and
-excludes generated `_build` output. The current tracked source total is 5200
+excludes generated `_build` output. The current tracked source total is 5421
 lines, so future code changes should keep the project above the 5000-line
 threshold.
 

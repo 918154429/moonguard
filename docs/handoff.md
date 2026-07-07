@@ -64,6 +64,8 @@ Library API in `moonguard.mbt` includes:
   `compare_api_snapshots`, `compare_api_file_sets`.
 - Reports: `render_markdown_report`, `render_json_report`,
   `render_markdown_package_report`, `render_json_package_report`,
+  `render_markdown_package_check_result`,
+  `render_json_package_check_result`,
   `render_markdown_snapshot_inventory`, `render_json_snapshot_inventory`.
 - SemVer: `parse_version`, `compare_versions`, `check_version_bump`,
   `check_interface_version_bump`, `render_version_check_markdown`,
@@ -89,6 +91,7 @@ moon run --target js cmd/main -- report old.mbti new.mbti [--format markdown|jso
 moon run --target js cmd/main -- report-dir old_dir new_dir [--format markdown|json] [--ignore-file path]
 moon run --target js cmd/main -- inventory-dir dir [--format markdown|json]
 moon run --target js cmd/main -- check old.mbti new.mbti --current 0.1.0 --next 0.2.0 [--format markdown|json] [--ignore-file path]
+moon run --target js cmd/main -- check-dir old_dir new_dir --current 0.1.0 --next 0.2.0 [--format markdown|json] [--ignore-file path]
 moon run cmd/main -- report-text "pub fn old() -> Unit" "pub fn new() -> Unit" [--format markdown|json] [--ignore-file path]
 ```
 
@@ -99,7 +102,8 @@ Important CLI detail:
 - `cmd/main/read_file_nonjs.mbt` returns clear fallback errors for non-JS
   targets.
 - Direct Node execution of `_build/js/debug/build/cmd/main/main.js` propagates
-  the intended nonzero exit status for failing `check` commands.
+  the intended nonzero exit status for failing `check` and `check-dir`
+  commands.
 - `moon run --target js` may not propagate that nonzero JavaScript exit status,
   so CI should use direct Node execution when it needs to assert failure.
 
@@ -135,7 +139,7 @@ Fixtures:
 Current local test result:
 
 ```text
-Total tests: 111, passed: 111, failed: 0.
+Total tests: 119, passed: 119, failed: 0.
 ```
 
 GitHub Actions should cover:
@@ -143,8 +147,8 @@ GitHub Actions should cover:
 - `moon check`
 - `moon test`
 - Markdown and JSON CLI report smoke tests
-- directory report and inventory smoke tests
-- direct Node `check` success and failure exit-code assertions
+- directory report, directory check, and inventory smoke tests
+- direct Node `check` and `check-dir` success and failure exit-code assertions
 - `moon fmt` plus `git diff --exit-code`
 
 ## Verification Commands
@@ -158,8 +162,10 @@ Run from the repository root:
 & 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' test
 & 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti --format json
 & 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' run --target js cmd/main -- report-dir fixtures/dir-old fixtures/dir-new
+& 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' run --target js cmd/main -- check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
 & 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' run --target js cmd/main -- inventory-dir fixtures/dir-new
 node _build\js\debug\build\cmd\main\main.js check fixtures/old.mbti fixtures/new.mbti --current 0.1.0 --next 0.2.0
+node _build\js\debug\build\cmd\main\main.js check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
 ```
 
 Check GitHub Actions:
@@ -176,7 +182,7 @@ gh run list --repo 918154429/moonguard --limit 5
 - Native file and directory input is not implemented; CLI file/directory mode
   is JS target only.
 - Source-line competition tracking counts repository `.mbt` files and excludes
-  generated `_build` output. Current tracked source total is 5200 lines, so
+  generated `_build` output. Current tracked source total is 5421 lines, so
   future implementation slices should keep a buffer above the 5000-line
   threshold.
 

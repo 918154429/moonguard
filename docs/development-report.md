@@ -41,7 +41,8 @@ Implemented capabilities:
 - Detect changed public signatures as `major`.
 - Render Markdown and JSON compatibility reports.
 - Parse and validate `major.minor.patch` SemVer versions.
-- Check whether a proposed next version satisfies the report recommendation.
+- Check whether a proposed next version satisfies a file or package report
+  recommendation.
 - Parse simple ignore-rule files and filter accepted or experimental API
   changes from reports.
 - Build package snapshots from multiple `.mbti` files.
@@ -49,8 +50,8 @@ Implemented capabilities:
   different files do not overwrite each other.
 - Report directory diagnostics such as empty input, no `.mbti` files, duplicate
   symbols, and file-read failures.
-- Render package-level comparison reports and snapshot inventories in Markdown
-  or JSON.
+- Render package-level comparison reports, package version-check reports, and
+  snapshot inventories in Markdown or JSON.
 - Provide file-based CLI comparison on the JS backend:
 
 ```sh
@@ -69,6 +70,7 @@ moon run cmd/main -- report-text "pub fn old() -> Unit" "pub fn new() -> Unit"
 moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti --format json
 moon run --target js cmd/main -- check fixtures/old.mbti fixtures/new.mbti --current 0.1.0 --next 0.2.0
 moon run --target js cmd/main -- report-dir fixtures/dir-old fixtures/dir-new
+moon run --target js cmd/main -- check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
 moon run --target js cmd/main -- inventory-dir fixtures/dir-new --format json
 ```
 
@@ -86,7 +88,8 @@ being validated:
   - package snapshot model and diagnostics
   - Markdown and JSON report renderers
 - `cmd/main/main.mbt`
-  - CLI entry point for text, file, directory, inventory, and check commands
+  - CLI entry point for text, file, directory, inventory, check, and check-dir
+    commands
 - `cmd/main/read_file_js.mbt`
   - JS backend file and directory reading through Node APIs
 - `cmd/main/read_file_nonjs.mbt`
@@ -140,7 +143,7 @@ Current tests cover:
 - SemVer parsing and version-bump validation;
 - ignore-rule parsing and filtering;
 - package snapshot construction and diagnostics;
-- package report and inventory rendering;
+- package report, package check, and inventory rendering;
 - CLI argument handling;
 - JS-target file and directory CLI smoke tests;
 - CLI check output and exit-code intent;
@@ -156,14 +159,16 @@ moon test
 moon run cmd/main -- --version
 moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti --format json
 moon run --target js cmd/main -- report-dir fixtures/dir-old fixtures/dir-new
+moon run --target js cmd/main -- check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
 moon run --target js cmd/main -- inventory-dir fixtures/dir-new
 node _build/js/debug/build/cmd/main/main.js check fixtures/old.mbti fixtures/new.mbti --current 0.1.0 --next 0.2.0
+node _build/js/debug/build/cmd/main/main.js check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
 ```
 
 Current local result:
 
 ```text
-Total tests: 111, passed: 111, failed: 0.
+Total tests: 119, passed: 119, failed: 0.
 ```
 
 ## Known Limits
@@ -175,7 +180,7 @@ Total tests: 111, passed: 111, failed: 0.
   process exit status. The generated JS file does return the intended status
   when run directly with Node, so CI uses direct Node execution for strict
   failing `check` assertions.
-- The tracked `.mbt` source total is currently 5200 lines excluding `_build`.
+- The tracked `.mbt` source total is currently 5421 lines excluding `_build`.
   Future implementation slices should keep the project comfortably above the
   5000-line competition threshold.
 

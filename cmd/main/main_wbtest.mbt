@@ -144,6 +144,40 @@ test "run_args ignores js process argv prefix for report-dir" {
 }
 
 ///|
+test "check-dir requires versions before reading directories" {
+  let result = run_args_result(["moonguard", "check-dir", "old-dir", "new-dir"])
+  inspect(
+    result.output,
+    content="error: check requires --current major.minor.patch",
+  )
+  inspect(result.exit_code, content="2")
+}
+
+///|
+test "check-dir explains non-js backend requirement" {
+  let result = run_args_result([
+    "moonguard", "check-dir", "old-dir", "new-dir", "--current", "1.0.0", "--next",
+    "2.0.0",
+  ])
+  inspect(
+    result.output,
+    content="error: cannot list old interface directory 'old-dir': directory input currently requires the JS backend; run with `moon run --target js cmd/main -- report-dir old_dir new_dir`",
+  )
+  inspect(result.exit_code, content="2")
+}
+
+///|
+test "run_args ignores js process argv prefix for check-dir" {
+  inspect(
+    run_args([
+      "node", "_build/default/js/release/build/cmd/main/main.js", "check-dir", "old-dir",
+      "new-dir", "--current", "1.0.0", "--next", "2.0.0",
+    ]),
+    content="error: cannot list old interface directory 'old-dir': directory input currently requires the JS backend; run with `moon run --target js cmd/main -- report-dir old_dir new_dir`",
+  )
+}
+
+///|
 test "read_dir_snapshot rejects directories without mbti files" {
   match read_dir_snapshot("empty-dir", [], "old") {
     Ok(_) => fail("expected empty directory error")
@@ -249,6 +283,50 @@ test "package result json includes diagnostic summary" {
   assert_true(result.output.contains("\"diagnostic_summary\""))
   assert_true(result.output.contains("\"warnings\": 1"))
   assert_true(result.output.contains("\"empty-interface\""))
+}
+
+///|
+test "check package result fails insufficient directory bump" {
+  let report = @moonguard.diff_interfaces(
+    "pub fn render(String) -> String", "pub fn render(String, Options) -> String",
+  )
+  let result = check_package_result(report, [], "1.2.3", "1.3.0", "markdown")
+  inspect(result.exit_code, content="1")
+  assert_true(
+    result.output.contains("# MoonGuard Package API Compatibility Report"),
+  )
+  assert_true(result.output.contains("## Version Check"))
+  assert_true(result.output.contains("- Result: **fail**"))
+}
+
+///|
+test "check package result passes sufficient directory bump" {
+  let report = @moonguard.diff_interfaces(
+    "pub fn render(String) -> String", "pub fn render(String, Options) -> String",
+  )
+  let result = check_package_result(report, [], "1.2.3", "2.0.0", "markdown")
+  inspect(result.exit_code, content="0")
+  assert_true(result.output.contains("- Result: **pass**"))
+}
+
+///|
+test "check package result prefers diagnostic errors" {
+  let report = @moonguard.diff_interfaces("", "")
+  let snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file("", "pub fn broken() -> Unit"),
+  ])
+  let result = check_package_result(
+    report,
+    snapshot.diagnostics,
+    "1.2.3",
+    "1.2.4",
+    "json",
+  )
+  inspect(result.exit_code, content="2")
+  assert_true(result.output.contains("\"diagnostics\""))
+  assert_true(result.output.contains("\"version_check\""))
+  assert_true(result.output.contains("\"ok\": true"))
+  assert_true(result.output.contains("\"empty-path\""))
 }
 
 ///|
@@ -383,6 +461,7 @@ test "help mentions file and text modes" {
   assert_true(help.contains("report-dir old_dir new_dir"))
   assert_true(help.contains("inventory-dir dir"))
   assert_true(help.contains("check old.mbti new.mbti"))
+  assert_true(help.contains("check-dir old_dir new_dir"))
   assert_true(help.contains("report-text"))
   assert_true(help.contains("--format markdown|json"))
   assert_true(help.contains("--ignore-file path"))

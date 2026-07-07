@@ -1291,6 +1291,51 @@ test "render json package report without diagnostics" {
 }
 
 ///|
+test "render markdown package check result" {
+  let report = @moonguard.diff_interfaces(
+    (
+      #|pub fn render(String) -> String
+    ),
+    (
+      #|pub fn render(String, Options) -> String
+    ),
+  )
+  let check = @moonguard.check_version_bump(report, "1.2.3", "1.3.0")
+  let markdown = @moonguard.render_markdown_package_check_result(
+    report,
+    [],
+    check,
+  )
+  assert_true(markdown.contains("# MoonGuard Package API Compatibility Report"))
+  assert_true(markdown.contains("- Recommendation: **major**"))
+  assert_true(markdown.contains("## Version Check"))
+  assert_true(markdown.contains("- Result: **fail**"))
+  assert_true(
+    markdown.contains("major recommendation requires increasing major version"),
+  )
+}
+
+///|
+test "render json package check result includes diagnostics and version check" {
+  let report = @moonguard.diff_interfaces("", "")
+  let snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file("", "pub fn broken() -> Unit"),
+  ])
+  let check = @moonguard.check_version_bump(report, "1.2.3", "1.2.4")
+  let json = @moonguard.render_json_package_check_result(
+    report,
+    snapshot.diagnostics,
+    check,
+  )
+  assert_true(json.contains("\"diagnostic_summary\""))
+  assert_true(json.contains("\"diagnostics\""))
+  assert_true(json.contains("\"code\": \"empty-path\""))
+  assert_true(json.contains("\"version_check\""))
+  assert_true(json.contains("\"ok\": true"))
+  assert_true(json.contains("\"required\": \"patch\""))
+}
+
+///|
 test "render markdown snapshot inventory without diagnostics" {
   let snapshot = @moonguard.build_api_snapshot([
     @moonguard.api_file("pkg.generated.mbti", "pub fn render(String) -> String"),

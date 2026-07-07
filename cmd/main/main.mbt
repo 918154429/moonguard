@@ -59,6 +59,8 @@ fn run_args_result(args : Array[String]) -> CliResult {
     report_files_command(cli_args)
   } else if cli_args[0] == "report-dir" {
     report_dirs_command(cli_args)
+  } else if cli_args[0] == "check-dir" {
+    check_dirs_command(cli_args)
   } else if cli_args[0] == "inventory-dir" {
     inventory_dir_command(cli_args)
   } else if cli_args[0] == "check" {
@@ -81,6 +83,7 @@ fn command_start(args : Array[String]) -> Int {
     if arg == "report" ||
       arg == "report-dir" ||
       arg == "report-text" ||
+      arg == "check-dir" ||
       arg == "inventory-dir" ||
       arg == "check" ||
       arg == "--help" ||
@@ -154,6 +157,32 @@ fn report_dirs_command(args : ArrayView[String]) -> CliResult {
 }
 
 ///|
+fn check_dirs_command(args : ArrayView[String]) -> CliResult {
+  if args.length() < 3 {
+    return error_result("error: check-dir requires OLD_DIR and NEW_DIR")
+  }
+  match parse_check_options(args, 3) {
+    Err(message) => error_result(message)
+    Ok(options) =>
+      match diff_dir_package_report(args[1], args[2]) {
+        Err(message) => error_result(message)
+        Ok(package_report) =>
+          match apply_ignore_file(package_report.report, options.ignore_file) {
+            Err(message) => error_result(message)
+            Ok(filtered) =>
+              check_package_result(
+                filtered,
+                package_report.diagnostics,
+                options.current,
+                options.next,
+                options.format,
+              )
+          }
+      }
+  }
+}
+
+///|
 fn inventory_dir_command(args : ArrayView[String]) -> CliResult {
   if args.length() < 2 {
     return error_result("error: inventory-dir requires DIR")
@@ -178,6 +207,25 @@ fn inventory_dir_command(args : ArrayView[String]) -> CliResult {
         Ok(snapshot) => inventory_result(snapshot, options.format)
       }
     }
+  }
+}
+
+///|
+fn check_package_result(
+  report : @moonguard.ApiReport,
+  diagnostics : Array[@moonguard.ApiDiagnostic],
+  current : String,
+  next : String,
+  format : String,
+) -> CliResult {
+  let check = @moonguard.check_version_bump(report, current, next)
+  let output = render_package_check_output(report, diagnostics, check, format)
+  if @moonguard.diagnostics_have_errors(diagnostics) {
+    { output, exit_code: 2 }
+  } else if check.ok {
+    { output, exit_code: 0 }
+  } else {
+    { output, exit_code: 1 }
   }
 }
 
@@ -488,6 +536,20 @@ fn render_report(report : @moonguard.ApiReport, format : String) -> String {
 }
 
 ///|
+fn render_package_check_output(
+  report : @moonguard.ApiReport,
+  diagnostics : Array[@moonguard.ApiDiagnostic],
+  check : @moonguard.VersionCheck,
+  format : String,
+) -> String {
+  if format == "json" {
+    @moonguard.render_json_package_check_result(report, diagnostics, check)
+  } else {
+    @moonguard.render_markdown_package_check_result(report, diagnostics, check)
+  }
+}
+
+///|
 fn render_check_output(
   report : @moonguard.ApiReport,
   check : @moonguard.VersionCheck,
@@ -547,6 +609,7 @@ fn help_text() -> String {
     #|  moon run --target js cmd/main -- report-dir old_dir new_dir [--format markdown|json] [--ignore-file path]
     #|  moon run --target js cmd/main -- inventory-dir dir [--format markdown|json]
     #|  moon run --target js cmd/main -- check old.mbti new.mbti --current 0.1.0 --next 0.2.0 [--format markdown|json] [--ignore-file path]
+    #|  moon run --target js cmd/main -- check-dir old_dir new_dir --current 0.1.0 --next 0.2.0 [--format markdown|json] [--ignore-file path]
     #|  moon run cmd/main -- report-text "pub fn old() -> Unit" "pub fn new() -> Unit" [--format markdown|json] [--ignore-file path]
     #|  moon run cmd/main -- --version
     #|  moon run cmd/main -- --help

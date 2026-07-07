@@ -46,11 +46,15 @@ pub fn parse_version(String) -> Version?
 
 pub fn render_json_check_result(ApiReport, VersionCheck) -> String
 
+pub fn render_json_package_check_result(ApiReport, Array[ApiDiagnostic], VersionCheck) -> String
+
 pub fn render_json_package_report(ApiReport, Array[ApiDiagnostic]) -> String
 
 pub fn render_json_report(ApiReport) -> String
 
 pub fn render_json_snapshot_inventory(ApiSnapshot) -> String
+
+pub fn render_markdown_package_check_result(ApiReport, Array[ApiDiagnostic], VersionCheck) -> String
 
 pub fn render_markdown_package_report(ApiReport, Array[ApiDiagnostic]) -> String
 

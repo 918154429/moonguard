@@ -575,6 +575,53 @@ pub fn render_json_check_result(
 }
 
 ///|
+/// Render a package-level Markdown report with a SemVer check section.
+pub fn render_markdown_package_check_result(
+  report : ApiReport,
+  diagnostics : Array[ApiDiagnostic],
+  check : VersionCheck,
+) -> String {
+  let out = StringBuilder()
+  out.write(render_markdown_package_report(report, diagnostics))
+  out.write("\n")
+  out.write(render_version_check_markdown(check))
+  out.to_string()
+}
+
+///|
+/// Render a package-level JSON report with diagnostics and a SemVer check.
+pub fn render_json_package_check_result(
+  report : ApiReport,
+  diagnostics : Array[ApiDiagnostic],
+  check : VersionCheck,
+) -> String {
+  let out = StringBuilder()
+  out.write("{\n")
+  write_json_indent(out, 2)
+  out.write("\"report\": ")
+  write_json_report_object(out, report, 2)
+  out.write(",\n")
+  write_json_indent(out, 2)
+  out.write("\"diagnostic_summary\": ")
+  write_json_diagnostic_summary_object(
+    out,
+    summarize_diagnostics(diagnostics),
+    2,
+  )
+  out.write(",\n")
+  write_json_indent(out, 2)
+  out.write("\"diagnostics\": ")
+  write_json_diagnostics_array(out, diagnostics, 2)
+  out.write(",\n")
+  write_json_indent(out, 2)
+  out.write("\"version_check\": ")
+  write_json_version_check_object(out, check, 2)
+  out.write("\n")
+  out.write("}\n")
+  out.to_string()
+}
+
+///|
 /// Render a package-level Markdown report with summary and diagnostics.
 pub fn render_markdown_package_report(
   report : ApiReport,

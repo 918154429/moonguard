@@ -41,17 +41,25 @@ jobs:
       - name: CLI directory smoke tests
         run: |
           moon run --target js cmd/main -- report-dir fixtures/dir-old fixtures/dir-new
+          moon run --target js cmd/main -- check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
           moon run --target js cmd/main -- inventory-dir fixtures/dir-new --format json
 
       - name: CLI check exit-code smoke tests
         run: |
           node _build/js/debug/build/cmd/main/main.js check fixtures/old.mbti fixtures/new.mbti --current 0.1.0 --next 1.0.0
+          node _build/js/debug/build/cmd/main/main.js check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
           set +e
           node _build/js/debug/build/cmd/main/main.js check fixtures/old.mbti fixtures/new.mbti --current 0.1.0 --next 0.2.0
-          status=$?
+          file_status=$?
+          node _build/js/debug/build/cmd/main/main.js check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 0.2.0
+          dir_status=$?
           set -e
-          if [ "$status" -eq 0 ]; then
-            echo "expected direct Node check command to fail for an insufficient major bump"
+          if [ "$file_status" -eq 0 ]; then
+            echo "expected direct Node file check command to fail for an insufficient major bump"
+            exit 1
+          fi
+          if [ "$dir_status" -eq 0 ]; then
+            echo "expected direct Node directory check command to fail for an insufficient major bump"
             exit 1
           fi
 
