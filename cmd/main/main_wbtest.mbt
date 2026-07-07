@@ -353,6 +353,10 @@ test "parse cli config supports common keys" {
         #|ignore_file = fixtures/ignore-render.rules
         #|current = 0.1.0
         #|next = 1.0.0
+        #|baseline = fixtures/old.mbti
+        #|target = fixtures/new.mbti
+        #|baseline_dir = fixtures/dir-old
+        #|target_dir = fixtures/dir-new
       ),
     ) {
     Err(message) => fail(message)
@@ -361,6 +365,10 @@ test "parse cli config supports common keys" {
       inspect(config.ignore_file, content="fixtures/ignore-render.rules")
       inspect(config.current, content="0.1.0")
       inspect(config.next, content="1.0.0")
+      inspect(config.baseline, content="fixtures/old.mbti")
+      inspect(config.target, content="fixtures/new.mbti")
+      inspect(config.baseline_dir, content="fixtures/dir-old")
+      inspect(config.target_dir, content="fixtures/dir-new")
     }
   }
 }
@@ -399,6 +407,10 @@ test "config defaults merge with report options" {
     ignore_file: "config.rules",
     current: "0.1.0",
     next: "1.0.0",
+    baseline: "config-old.mbti",
+    target: "config-new.mbti",
+    baseline_dir: "config-old-dir",
+    target_dir: "config-new-dir",
   }
   match
     parse_report_options(
@@ -410,7 +422,43 @@ test "config defaults merge with report options" {
       let merged = merge_report_options(options, config)
       inspect(merged.format, content="json")
       inspect(merged.ignore_file, content="config.rules")
+      inspect(merged.baseline, content="config-old.mbti")
+      inspect(merged.target, content="config-new.mbti")
+      inspect(merged.baseline_dir, content="config-old-dir")
+      inspect(merged.target_dir, content="config-new-dir")
       inspect(merged.config_file, content="moonguard.conf")
+    }
+  }
+}
+
+///|
+test "config path defaults merge without positional report paths" {
+  let config = {
+    format: "json",
+    ignore_file: "",
+    current: "",
+    next: "",
+    baseline: "config-old.mbti",
+    target: "config-new.mbti",
+    baseline_dir: "config-old-dir",
+    target_dir: "config-new-dir",
+  }
+  match parse_report_options(["report", "--config", "moonguard.conf"][:], 1) {
+    Err(message) => fail(message)
+    Ok(options) => {
+      let merged = merge_report_options(options, config)
+      inspect(merged.baseline, content="config-old.mbti")
+      inspect(merged.target, content="config-new.mbti")
+      inspect(merged.baseline_dir, content="config-old-dir")
+      inspect(merged.target_dir, content="config-new-dir")
+      inspect(
+        choose_configured_path("", merged.baseline),
+        content="config-old.mbti",
+      )
+      inspect(
+        choose_configured_path("", merged.target_dir),
+        content="config-new-dir",
+      )
     }
   }
 }
@@ -422,6 +470,10 @@ test "command line report options override config defaults" {
     ignore_file: "config.rules",
     current: "0.1.0",
     next: "1.0.0",
+    baseline: "config-old.mbti",
+    target: "config-new.mbti",
+    baseline_dir: "config-old-dir",
+    target_dir: "config-new-dir",
   }
   match
     parse_report_options(
@@ -447,6 +499,10 @@ test "config supplies check versions" {
     ignore_file: "",
     current: "0.1.0",
     next: "1.0.0",
+    baseline: "config-old.mbti",
+    target: "config-new.mbti",
+    baseline_dir: "config-old-dir",
+    target_dir: "config-new-dir",
   }
   match
     parse_check_options(
@@ -459,6 +515,34 @@ test "config supplies check versions" {
       inspect(merged.current, content="0.1.0")
       inspect(merged.next, content="1.0.0")
       inspect(merged.format, content="json")
+      inspect(merged.baseline, content="config-old.mbti")
+      inspect(merged.target, content="config-new.mbti")
+    }
+  }
+}
+
+///|
+test "config path defaults merge without positional check paths" {
+  let config = {
+    format: "json",
+    ignore_file: "",
+    current: "0.1.0",
+    next: "1.0.0",
+    baseline: "config-old.mbti",
+    target: "config-new.mbti",
+    baseline_dir: "config-old-dir",
+    target_dir: "config-new-dir",
+  }
+  match parse_check_options(["check", "--config", "moonguard.conf"][:], 1) {
+    Err(message) => fail(message)
+    Ok(options) => {
+      let merged = merge_check_options(options, config)
+      inspect(merged.current, content="0.1.0")
+      inspect(merged.next, content="1.0.0")
+      inspect(merged.baseline, content="config-old.mbti")
+      inspect(merged.target, content="config-new.mbti")
+      inspect(merged.baseline_dir, content="config-old-dir")
+      inspect(merged.target_dir, content="config-new-dir")
     }
   }
 }
@@ -470,6 +554,10 @@ test "command line check versions override config defaults" {
     ignore_file: "",
     current: "0.1.0",
     next: "1.0.0",
+    baseline: "config-old.mbti",
+    target: "config-new.mbti",
+    baseline_dir: "config-old-dir",
+    target_dir: "config-new-dir",
   }
   match
     parse_check_options(
@@ -487,6 +575,79 @@ test "command line check versions override config defaults" {
       inspect(merged.format, content="markdown")
     }
   }
+}
+
+///|
+test "optional path parsers allow config only commands" {
+  match
+    parse_optional_path_pair(
+      ["report", "--config", "moonguard.conf"][:],
+      "report requires OLD_MBTI and NEW_MBTI",
+    ) {
+    Err(message) => fail(message)
+    Ok((old_path, new_path, option_start)) => {
+      inspect(old_path, content="")
+      inspect(new_path, content="")
+      inspect(option_start, content="1")
+    }
+  }
+  match
+    parse_optional_path_pair(
+      ["report", "old.mbti"][:],
+      "report requires OLD_MBTI and NEW_MBTI",
+    ) {
+    Ok(_) => fail("expected partial path pair error")
+    Err(message) =>
+      inspect(message, content="error: report requires OLD_MBTI and NEW_MBTI")
+  }
+  match
+    parse_optional_path(
+      ["inventory-dir", "--config", "moonguard.conf"][:],
+      "inventory-dir requires DIR",
+    ) {
+    Err(message) => fail(message)
+    Ok((path, option_start)) => {
+      inspect(path, content="")
+      inspect(option_start, content="1")
+    }
+  }
+  match
+    parse_optional_path(
+      ["inventory-dir", "one", "two"][:],
+      "inventory-dir requires DIR",
+    ) {
+    Ok(_) => fail("expected extra path error")
+    Err(message) =>
+      inspect(message, content="error: inventory-dir requires DIR")
+  }
+}
+
+///|
+test "config only commands reach config loading" {
+  let report = run_args_result([
+    "moonguard", "report", "--config", "moonguard.conf",
+  ])
+  inspect(
+    report.output,
+    content="error: cannot read config file 'moonguard.conf': file input currently requires the JS backend; run with `moon run --target js cmd/main -- report old.mbti new.mbti`",
+  )
+  inspect(report.exit_code, content="2")
+  let check = run_args_result([
+    "moonguard", "check", "--config", "moonguard.conf",
+  ])
+  inspect(
+    check.output,
+    content="error: cannot read config file 'moonguard.conf': file input currently requires the JS backend; run with `moon run --target js cmd/main -- report old.mbti new.mbti`",
+  )
+  inspect(check.exit_code, content="2")
+  let inventory = run_args_result([
+    "moonguard", "inventory-dir", "--config", "moonguard.conf",
+  ])
+  inspect(
+    inventory.output,
+    content="error: cannot read config file 'moonguard.conf': file input currently requires the JS backend; run with `moon run --target js cmd/main -- report old.mbti new.mbti`",
+  )
+  inspect(inventory.exit_code, content="2")
 }
 
 ///|

@@ -13,6 +13,10 @@ struct CheckOptions {
   next : String
   format : String
   ignore_file : String
+  baseline : String
+  target : String
+  baseline_dir : String
+  target_dir : String
   config_file : String
   has_current : Bool
   has_next : Bool
@@ -24,6 +28,10 @@ struct CheckOptions {
 struct ReportOptions {
   format : String
   ignore_file : String
+  baseline : String
+  target : String
+  baseline_dir : String
+  target_dir : String
   config_file : String
   has_format : Bool
   has_ignore_file : Bool
@@ -35,6 +43,10 @@ struct CliConfig {
   ignore_file : String
   current : String
   next : String
+  baseline : String
+  target : String
+  baseline_dir : String
+  target_dir : String
 } derive(Eq, Debug)
 
 ///|
@@ -135,23 +147,33 @@ fn report_text_command(args : ArrayView[String]) -> CliResult {
 
 ///|
 fn report_files_command(args : ArrayView[String]) -> CliResult {
-  if args.length() < 3 {
-    return error_result("error: report requires OLD_MBTI and NEW_MBTI")
-  }
-  match parse_report_options(args, 3) {
+  match
+    parse_optional_path_pair(args, "report requires OLD_MBTI and NEW_MBTI") {
     Err(message) => error_result(message)
-    Ok(parsed_options) =>
-      match resolve_report_options(parsed_options) {
+    Ok((old_arg, new_arg, option_start)) =>
+      match parse_report_options(args, option_start) {
         Err(message) => error_result(message)
-        Ok(options) =>
-          match diff_file_report(args[1], args[2]) {
+        Ok(parsed_options) =>
+          match resolve_report_options(parsed_options) {
             Err(message) => error_result(message)
-            Ok(report) =>
-              match apply_ignore_file(report, options.ignore_file) {
-                Err(message) => error_result(message)
-                Ok(filtered) =>
-                  ok_result(render_report(filtered, options.format))
+            Ok(options) => {
+              let old_path = choose_configured_path(old_arg, options.baseline)
+              let new_path = choose_configured_path(new_arg, options.target)
+              if old_path.length() == 0 || new_path.length() == 0 {
+                return error_result(
+                  "error: report requires OLD_MBTI and NEW_MBTI",
+                )
               }
+              match diff_file_report(old_path, new_path) {
+                Err(message) => error_result(message)
+                Ok(report) =>
+                  match apply_ignore_file(report, options.ignore_file) {
+                    Err(message) => error_result(message)
+                    Ok(filtered) =>
+                      ok_result(render_report(filtered, options.format))
+                  }
+              }
+            }
           }
       }
   }
@@ -159,28 +181,44 @@ fn report_files_command(args : ArrayView[String]) -> CliResult {
 
 ///|
 fn report_dirs_command(args : ArrayView[String]) -> CliResult {
-  if args.length() < 3 {
-    return error_result("error: report-dir requires OLD_DIR and NEW_DIR")
-  }
-  match parse_report_options(args, 3) {
+  match
+    parse_optional_path_pair(args, "report-dir requires OLD_DIR and NEW_DIR") {
     Err(message) => error_result(message)
-    Ok(parsed_options) =>
-      match resolve_report_options(parsed_options) {
+    Ok((old_arg, new_arg, option_start)) =>
+      match parse_report_options(args, option_start) {
         Err(message) => error_result(message)
-        Ok(options) =>
-          match diff_dir_package_report(args[1], args[2]) {
+        Ok(parsed_options) =>
+          match resolve_report_options(parsed_options) {
             Err(message) => error_result(message)
-            Ok(package_report) =>
-              match
-                apply_ignore_file(package_report.report, options.ignore_file) {
-                Err(message) => error_result(message)
-                Ok(filtered) =>
-                  package_result(
-                    filtered,
-                    package_report.diagnostics,
-                    options.format,
-                  )
+            Ok(options) => {
+              let old_dir = choose_configured_path(
+                old_arg,
+                options.baseline_dir,
+              )
+              let new_dir = choose_configured_path(new_arg, options.target_dir)
+              if old_dir.length() == 0 || new_dir.length() == 0 {
+                return error_result(
+                  "error: report-dir requires OLD_DIR and NEW_DIR",
+                )
               }
+              match diff_dir_package_report(old_dir, new_dir) {
+                Err(message) => error_result(message)
+                Ok(package_report) =>
+                  match
+                    apply_ignore_file(
+                      package_report.report,
+                      options.ignore_file,
+                    ) {
+                    Err(message) => error_result(message)
+                    Ok(filtered) =>
+                      package_result(
+                        filtered,
+                        package_report.diagnostics,
+                        options.format,
+                      )
+                  }
+              }
+            }
           }
       }
   }
@@ -188,30 +226,46 @@ fn report_dirs_command(args : ArrayView[String]) -> CliResult {
 
 ///|
 fn check_dirs_command(args : ArrayView[String]) -> CliResult {
-  if args.length() < 3 {
-    return error_result("error: check-dir requires OLD_DIR and NEW_DIR")
-  }
-  match parse_check_options(args, 3) {
+  match
+    parse_optional_path_pair(args, "check-dir requires OLD_DIR and NEW_DIR") {
     Err(message) => error_result(message)
-    Ok(parsed_options) =>
-      match resolve_check_options(parsed_options) {
+    Ok((old_arg, new_arg, option_start)) =>
+      match parse_check_options(args, option_start) {
         Err(message) => error_result(message)
-        Ok(options) =>
-          match diff_dir_package_report(args[1], args[2]) {
+        Ok(parsed_options) =>
+          match resolve_check_options(parsed_options) {
             Err(message) => error_result(message)
-            Ok(package_report) =>
-              match
-                apply_ignore_file(package_report.report, options.ignore_file) {
-                Err(message) => error_result(message)
-                Ok(filtered) =>
-                  check_package_result(
-                    filtered,
-                    package_report.diagnostics,
-                    options.current,
-                    options.next,
-                    options.format,
-                  )
+            Ok(options) => {
+              let old_dir = choose_configured_path(
+                old_arg,
+                options.baseline_dir,
+              )
+              let new_dir = choose_configured_path(new_arg, options.target_dir)
+              if old_dir.length() == 0 || new_dir.length() == 0 {
+                return error_result(
+                  "error: check-dir requires OLD_DIR and NEW_DIR",
+                )
               }
+              match diff_dir_package_report(old_dir, new_dir) {
+                Err(message) => error_result(message)
+                Ok(package_report) =>
+                  match
+                    apply_ignore_file(
+                      package_report.report,
+                      options.ignore_file,
+                    ) {
+                    Err(message) => error_result(message)
+                    Ok(filtered) =>
+                      check_package_result(
+                        filtered,
+                        package_report.diagnostics,
+                        options.current,
+                        options.next,
+                        options.format,
+                      )
+                  }
+              }
+            }
           }
       }
   }
@@ -219,33 +273,38 @@ fn check_dirs_command(args : ArrayView[String]) -> CliResult {
 
 ///|
 fn inventory_dir_command(args : ArrayView[String]) -> CliResult {
-  if args.length() < 2 {
-    return error_result("error: inventory-dir requires DIR")
-  }
-  match parse_report_options(args, 2) {
+  match parse_optional_path(args, "inventory-dir requires DIR") {
     Err(message) => error_result(message)
-    Ok(parsed_options) =>
-      match resolve_report_options(parsed_options) {
+    Ok((dir_arg, option_start)) =>
+      match parse_report_options(args, option_start) {
         Err(message) => error_result(message)
-        Ok(options) => {
-          if options.ignore_file.length() > 0 {
-            return error_result(
-              "error: inventory-dir does not support --ignore-file",
-            )
-          }
-          let files = list_interface_files_raw(args[1])
-          if files.has_prefix(read_error_prefix) {
-            let message = files[read_error_prefix.length():].to_owned()
-            return error_result(
-              "error: cannot list interface directory '\{args[1]}': \{message}",
-            )
-          }
-          match
-            read_dir_snapshot(args[1], parse_file_list(files[:]), "target") {
+        Ok(parsed_options) =>
+          match resolve_report_options(parsed_options) {
             Err(message) => error_result(message)
-            Ok(snapshot) => inventory_result(snapshot, options.format)
+            Ok(options) => {
+              if options.ignore_file.length() > 0 {
+                return error_result(
+                  "error: inventory-dir does not support --ignore-file",
+                )
+              }
+              let dir = choose_configured_path(dir_arg, options.target_dir)
+              if dir.length() == 0 {
+                return error_result("error: inventory-dir requires DIR")
+              }
+              let files = list_interface_files_raw(dir)
+              if files.has_prefix(read_error_prefix) {
+                let message = files[read_error_prefix.length():].to_owned()
+                return error_result(
+                  "error: cannot list interface directory '\{dir}': \{message}",
+                )
+              }
+              match
+                read_dir_snapshot(dir, parse_file_list(files[:]), "target") {
+                Err(message) => error_result(message)
+                Ok(snapshot) => inventory_result(snapshot, options.format)
+              }
+            }
           }
-        }
       }
   }
 }
@@ -271,28 +330,37 @@ fn check_package_result(
 
 ///|
 fn check_files_command(args : ArrayView[String]) -> CliResult {
-  if args.length() < 3 {
-    return error_result("error: check requires OLD_MBTI and NEW_MBTI")
-  }
-  match parse_check_options(args, 3) {
+  match parse_optional_path_pair(args, "check requires OLD_MBTI and NEW_MBTI") {
     Err(message) => error_result(message)
-    Ok(parsed_options) =>
-      match resolve_check_options(parsed_options) {
+    Ok((old_arg, new_arg, option_start)) =>
+      match parse_check_options(args, option_start) {
         Err(message) => error_result(message)
-        Ok(options) =>
-          match diff_file_report(args[1], args[2]) {
+        Ok(parsed_options) =>
+          match resolve_check_options(parsed_options) {
             Err(message) => error_result(message)
-            Ok(report) =>
-              match apply_ignore_file(report, options.ignore_file) {
-                Err(message) => error_result(message)
-                Ok(filtered) =>
-                  check_report_result(
-                    filtered,
-                    options.current,
-                    options.next,
-                    options.format,
-                  )
+            Ok(options) => {
+              let old_path = choose_configured_path(old_arg, options.baseline)
+              let new_path = choose_configured_path(new_arg, options.target)
+              if old_path.length() == 0 || new_path.length() == 0 {
+                return error_result(
+                  "error: check requires OLD_MBTI and NEW_MBTI",
+                )
               }
+              match diff_file_report(old_path, new_path) {
+                Err(message) => error_result(message)
+                Ok(report) =>
+                  match apply_ignore_file(report, options.ignore_file) {
+                    Err(message) => error_result(message)
+                    Ok(filtered) =>
+                      check_report_result(
+                        filtered,
+                        options.current,
+                        options.next,
+                        options.format,
+                      )
+                  }
+              }
+            }
           }
       }
   }
@@ -476,6 +544,50 @@ fn parse_file_list(raw : StringView) -> Array[String] {
 }
 
 ///|
+fn parse_optional_path_pair(
+  args : ArrayView[String],
+  error_message : String,
+) -> Result[(String, String, Int), String] {
+  if args.length() >= 3 && !is_option_arg(args[1]) && !is_option_arg(args[2]) {
+    Ok((args[1].to_string(), args[2].to_string(), 3))
+  } else if args.length() >= 2 && !is_option_arg(args[1]) {
+    Err("error: \{error_message}")
+  } else {
+    Ok(("", "", 1))
+  }
+}
+
+///|
+fn parse_optional_path(
+  args : ArrayView[String],
+  error_message : String,
+) -> Result[(String, Int), String] {
+  if args.length() >= 2 && !is_option_arg(args[1]) {
+    if args.length() >= 3 && !is_option_arg(args[2]) {
+      Err("error: \{error_message}")
+    } else {
+      Ok((args[1].to_string(), 2))
+    }
+  } else {
+    Ok(("", 1))
+  }
+}
+
+///|
+fn is_option_arg(value : String) -> Bool {
+  value.has_prefix("--")
+}
+
+///|
+fn choose_configured_path(argument : String, configured : String) -> String {
+  if argument.length() > 0 {
+    argument
+  } else {
+    configured
+  }
+}
+
+///|
 fn resolve_report_options(
   options : ReportOptions,
 ) -> Result[ReportOptions, String] {
@@ -538,6 +650,10 @@ fn merge_report_options(
   {
     format,
     ignore_file,
+    baseline: config.baseline,
+    target: config.target,
+    baseline_dir: config.baseline_dir,
+    target_dir: config.target_dir,
     config_file: options.config_file,
     has_format: options.has_format || config.format.length() > 0,
     has_ignore_file: options.has_ignore_file || config.ignore_file.length() > 0,
@@ -553,6 +669,10 @@ fn merge_check_options(
     {
       format: options.format,
       ignore_file: options.ignore_file,
+      baseline: options.baseline,
+      target: options.target,
+      baseline_dir: options.baseline_dir,
+      target_dir: options.target_dir,
       config_file: options.config_file,
       has_format: options.has_format,
       has_ignore_file: options.has_ignore_file,
@@ -574,6 +694,10 @@ fn merge_check_options(
     next,
     format: report_options.format,
     ignore_file: report_options.ignore_file,
+    baseline: report_options.baseline,
+    target: report_options.target,
+    baseline_dir: report_options.baseline_dir,
+    target_dir: report_options.target_dir,
     config_file: options.config_file,
     has_current: options.has_current || config.current.length() > 0,
     has_next: options.has_next || config.next.length() > 0,
@@ -589,6 +713,10 @@ fn parse_cli_config(path : String, text : String) -> Result[CliConfig, String] {
   let mut ignore_file = ""
   let mut current = ""
   let mut next = ""
+  let mut baseline = ""
+  let mut target = ""
+  let mut baseline_dir = ""
+  let mut target_dir = ""
   let mut line_number = 1
   for raw_line in split_lines(text[:]) {
     let line = strip_config_comment(raw_line).trim()
@@ -616,6 +744,14 @@ fn parse_cli_config(path : String, text : String) -> Result[CliConfig, String] {
             current = value
           } else if key == "next" {
             next = value
+          } else if key == "baseline" {
+            baseline = value
+          } else if key == "target" {
+            target = value
+          } else if key == "baseline_dir" || key == "baseline-dir" {
+            baseline_dir = value
+          } else if key == "target_dir" || key == "target-dir" {
+            target_dir = value
           } else {
             errors.push("line \{line_number}: unknown config key '\{key}'")
           }
@@ -624,7 +760,16 @@ fn parse_cli_config(path : String, text : String) -> Result[CliConfig, String] {
     line_number += 1
   }
   if errors.is_empty() {
-    Ok({ format, ignore_file, current, next })
+    Ok({
+      format,
+      ignore_file,
+      current,
+      next,
+      baseline,
+      target,
+      baseline_dir,
+      target_dir,
+    })
   } else {
     Err(render_config_errors(path, errors))
   }
@@ -672,6 +817,10 @@ fn parse_report_options(
 ) -> Result[ReportOptions, String] {
   let mut format = "markdown"
   let mut ignore_file = ""
+  let baseline = ""
+  let target = ""
+  let baseline_dir = ""
+  let target_dir = ""
   let mut config_file = ""
   let mut has_format = false
   let mut has_ignore_file = false
@@ -707,7 +856,17 @@ fn parse_report_options(
       return Err("error: unknown option '\{option}'")
     }
   }
-  Ok({ format, ignore_file, config_file, has_format, has_ignore_file })
+  Ok({
+    format,
+    ignore_file,
+    baseline,
+    target,
+    baseline_dir,
+    target_dir,
+    config_file,
+    has_format,
+    has_ignore_file,
+  })
 }
 
 ///|
@@ -719,6 +878,10 @@ fn parse_check_options(
   let mut next = ""
   let mut format = "markdown"
   let mut ignore_file = ""
+  let baseline = ""
+  let target = ""
+  let baseline_dir = ""
+  let target_dir = ""
   let mut config_file = ""
   let mut has_current = false
   let mut has_next = false
@@ -775,6 +938,10 @@ fn parse_check_options(
     next,
     format,
     ignore_file,
+    baseline,
+    target,
+    baseline_dir,
+    target_dir,
     config_file,
     has_current,
     has_next,
@@ -884,7 +1051,7 @@ fn help_text() -> String {
     #|
     #|Compare MoonBit interface snapshots and print compatibility reports.
     #|The check command exits with 1 when the proposed SemVer bump is insufficient.
-    #|Config files use `key = value` lines for format, ignore_file, current, and next.
+    #|Config files can provide format, ignore_file, current, next, baseline, target, baseline_dir, and target_dir.
     #|Ignore files use rules such as `ignore fn debug_tmp`.
   help
 }
