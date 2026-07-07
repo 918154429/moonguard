@@ -111,6 +111,19 @@ test "report-text reports non-js ignore-file read error" {
 }
 
 ///|
+test "report-text reports non-js config read error" {
+  let result = run_args_result([
+    "moonguard", "report-text", "pub fn a() -> Unit", "pub fn b() -> Unit", "--config",
+    "moonguard.conf",
+  ])
+  inspect(
+    result.output,
+    content="error: cannot read config file 'moonguard.conf': file input currently requires the JS backend; run with `moon run --target js cmd/main -- report old.mbti new.mbti`",
+  )
+  inspect(result.exit_code, content="2")
+}
+
+///|
 test "render ignore errors includes all parser errors" {
   inspect(
     render_ignore_errors("rules.txt", [
@@ -330,6 +343,153 @@ test "check package result prefers diagnostic errors" {
 }
 
 ///|
+test "parse cli config supports common keys" {
+  match
+    parse_cli_config(
+      "moonguard.conf",
+      (
+        #|# shared CI defaults
+        #|format = json
+        #|ignore_file = fixtures/ignore-render.rules
+        #|current = 0.1.0
+        #|next = 1.0.0
+      ),
+    ) {
+    Err(message) => fail(message)
+    Ok(config) => {
+      inspect(config.format, content="json")
+      inspect(config.ignore_file, content="fixtures/ignore-render.rules")
+      inspect(config.current, content="0.1.0")
+      inspect(config.next, content="1.0.0")
+    }
+  }
+}
+
+///|
+test "parse cli config reports invalid lines" {
+  match
+    parse_cli_config(
+      "bad.conf",
+      (
+        #|format = xml
+        #|ignore_file =
+        #|bad line
+        #|unknown = value
+      ),
+    ) {
+    Ok(_) => fail("expected invalid config")
+    Err(message) => {
+      assert_true(message.contains("error: invalid config file 'bad.conf'"))
+      assert_true(message.contains("line 1: unsupported report format 'xml'"))
+      assert_true(
+        message.contains(
+          "line 2: config value for 'ignore_file' must not be empty",
+        ),
+      )
+      assert_true(message.contains("line 3: expected KEY = VALUE"))
+      assert_true(message.contains("line 4: unknown config key 'unknown'"))
+    }
+  }
+}
+
+///|
+test "config defaults merge with report options" {
+  let config = {
+    format: "json",
+    ignore_file: "config.rules",
+    current: "0.1.0",
+    next: "1.0.0",
+  }
+  match
+    parse_report_options(
+      ["report", "old.mbti", "new.mbti", "--config", "moonguard.conf"][:],
+      3,
+    ) {
+    Err(message) => fail(message)
+    Ok(options) => {
+      let merged = merge_report_options(options, config)
+      inspect(merged.format, content="json")
+      inspect(merged.ignore_file, content="config.rules")
+      inspect(merged.config_file, content="moonguard.conf")
+    }
+  }
+}
+
+///|
+test "command line report options override config defaults" {
+  let config = {
+    format: "json",
+    ignore_file: "config.rules",
+    current: "0.1.0",
+    next: "1.0.0",
+  }
+  match
+    parse_report_options(
+      [
+        "report", "old.mbti", "new.mbti", "--config", "moonguard.conf", "--format",
+        "markdown", "--ignore-file", "cli.rules",
+      ][:],
+      3,
+    ) {
+    Err(message) => fail(message)
+    Ok(options) => {
+      let merged = merge_report_options(options, config)
+      inspect(merged.format, content="markdown")
+      inspect(merged.ignore_file, content="cli.rules")
+    }
+  }
+}
+
+///|
+test "config supplies check versions" {
+  let config = {
+    format: "json",
+    ignore_file: "",
+    current: "0.1.0",
+    next: "1.0.0",
+  }
+  match
+    parse_check_options(
+      ["check", "old.mbti", "new.mbti", "--config", "moonguard.conf"][:],
+      3,
+    ) {
+    Err(message) => fail(message)
+    Ok(options) => {
+      let merged = merge_check_options(options, config)
+      inspect(merged.current, content="0.1.0")
+      inspect(merged.next, content="1.0.0")
+      inspect(merged.format, content="json")
+    }
+  }
+}
+
+///|
+test "command line check versions override config defaults" {
+  let config = {
+    format: "json",
+    ignore_file: "",
+    current: "0.1.0",
+    next: "1.0.0",
+  }
+  match
+    parse_check_options(
+      [
+        "check", "old.mbti", "new.mbti", "--config", "moonguard.conf", "--current",
+        "2.0.0", "--next", "3.0.0", "--format", "markdown",
+      ][:],
+      3,
+    ) {
+    Err(message) => fail(message)
+    Ok(options) => {
+      let merged = merge_check_options(options, config)
+      inspect(merged.current, content="2.0.0")
+      inspect(merged.next, content="3.0.0")
+      inspect(merged.format, content="markdown")
+    }
+  }
+}
+
+///|
 test "report options accept md alias and ignore file" {
   match
     parse_report_options(
@@ -373,6 +533,11 @@ test "option parsers reject missing values and unknown options" {
     Ok(_) => fail("expected missing format value error")
     Err(message) =>
       inspect(message, content="error: --format requires markdown or json")
+  }
+  match
+    parse_report_options(["report", "old.mbti", "new.mbti", "--config"][:], 3) {
+    Ok(_) => fail("expected missing config value error")
+    Err(message) => inspect(message, content="error: --config requires a path")
   }
   match
     parse_report_options(["report", "old.mbti", "new.mbti", "--bad"][:], 3) {
@@ -465,4 +630,5 @@ test "help mentions file and text modes" {
   assert_true(help.contains("report-text"))
   assert_true(help.contains("--format markdown|json"))
   assert_true(help.contains("--ignore-file path"))
+  assert_true(help.contains("--config path"))
 }

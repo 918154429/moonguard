@@ -13,6 +13,8 @@ pub fn run_args(Array[String]) -> String
 // Types and methods
 type CheckOptions derive(Eq, @debug.Debug)
 
+type CliConfig derive(Eq, @debug.Debug)
+
 type CliResult derive(Eq, @debug.Debug)
 
 type PackageReportResult derive(Eq, @debug.Debug)

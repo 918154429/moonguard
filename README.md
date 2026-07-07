@@ -27,6 +27,7 @@ engineering infrastructure for package authors and CI workflows.
 - Validate whether a proposed SemVer bump satisfies the recommended impact for
   single-file or package-directory comparisons.
 - Filter accepted or experimental changes with simple ignore rules.
+- Share repeated CLI defaults through simple config files.
 - Compare package directories, detect duplicate symbols and directory
   diagnostics, and render snapshot inventories.
 - Read `.mbti` files and directories from the CLI when running on the JS
@@ -87,6 +88,18 @@ Check whether a planned version bump is sufficient:
 
 ```sh
 moon run --target js cmd/main -- check fixtures/old.mbti fixtures/new.mbti --current 0.1.0 --next 0.2.0
+```
+
+Use a config file for repeated CI defaults:
+
+```text
+format = json
+current = 0.1.0
+next = 1.0.0
+```
+
+```sh
+moon run --target js cmd/main -- check fixtures/old.mbti fixtures/new.mbti --config fixtures/moonguard-ci.conf
 ```
 
 Compare package directories and inspect a generated interface inventory:
@@ -150,6 +163,7 @@ moon info
 moon check
 moon test
 moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti --format json
+moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti --config fixtures/moonguard-ci.conf
 moon run --target js cmd/main -- report-dir fixtures/dir-old fixtures/dir-new
 moon run --target js cmd/main -- check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
 moon run --target js cmd/main -- inventory-dir fixtures/dir-new
@@ -161,7 +175,7 @@ Generated `pkg.generated.mbti` files are kept in the repository so interface
 changes are reviewable after `moon info`.
 
 Competition source-line tracking counts repository `.mbt` source files and
-excludes generated `_build` output. The current tracked source total is 5455
+excludes generated `_build` output. The current tracked source total is 5873
 lines, so future code changes should keep the project above the 5000-line
 threshold.
 

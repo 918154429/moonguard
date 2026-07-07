@@ -95,6 +95,10 @@ moon run --target js cmd/main -- check-dir old_dir new_dir --current 0.1.0 --nex
 moon run cmd/main -- report-text "pub fn old() -> Unit" "pub fn new() -> Unit" [--format markdown|json] [--ignore-file path]
 ```
 
+All report and check commands also accept `--config path`. Config files use
+simple `key = value` lines for `format`, `ignore_file`, `current`, and `next`.
+Command-line options override config defaults.
+
 Important CLI detail:
 
 - File and directory commands currently require `--target js`.
@@ -139,7 +143,7 @@ Fixtures:
 Current local test result:
 
 ```text
-Total tests: 120, passed: 120, failed: 0.
+Total tests: 127, passed: 127, failed: 0.
 ```
 
 GitHub Actions should cover:
@@ -147,6 +151,7 @@ GitHub Actions should cover:
 - `moon check`
 - `moon test`
 - Markdown and JSON CLI report smoke tests
+- config-driven CLI smoke tests
 - directory report, directory check, and inventory smoke tests
 - direct Node `check` and `check-dir` success and failure exit-code assertions
 - `moon fmt` plus `git diff --exit-code`
@@ -161,6 +166,7 @@ Run from the repository root:
 & 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' check
 & 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' test
 & 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti --format json
+& 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti --config fixtures/moonguard-ci.conf
 & 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' run --target js cmd/main -- report-dir fixtures/dir-old fixtures/dir-new
 & 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' run --target js cmd/main -- check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
 & 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' run --target js cmd/main -- inventory-dir fixtures/dir-new
@@ -182,7 +188,7 @@ gh run list --repo 918154429/moonguard --limit 5
 - Native file and directory input is not implemented; CLI file/directory mode
   is JS target only.
 - Source-line competition tracking counts repository `.mbt` files and excludes
-  generated `_build` output. Current tracked source total is 5455 lines, so
+  generated `_build` output. Current tracked source total is 5873 lines, so
   future implementation slices should keep a buffer above the 5000-line
   threshold.
 
@@ -192,8 +198,6 @@ Strong next options:
 
 - Add a baseline workflow for comparing a package against a saved release
   interface snapshot.
-- Add lightweight configuration support for repeated CLI options such as
-  current version, next version, report format, and ignore file.
 - Mine more real toolchain/core `.mbti` files for parser edge cases.
 - Split the large implementation into parser, model, diff, semver, report, and
   CLI-focused modules once the public API shape is stable.

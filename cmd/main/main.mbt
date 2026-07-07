@@ -13,12 +13,28 @@ struct CheckOptions {
   next : String
   format : String
   ignore_file : String
+  config_file : String
+  has_current : Bool
+  has_next : Bool
+  has_format : Bool
+  has_ignore_file : Bool
 } derive(Eq, Debug)
 
 ///|
 struct ReportOptions {
   format : String
   ignore_file : String
+  config_file : String
+  has_format : Bool
+  has_ignore_file : Bool
+} derive(Eq, Debug)
+
+///|
+struct CliConfig {
+  format : String
+  ignore_file : String
+  current : String
+  next : String
 } derive(Eq, Debug)
 
 ///|
@@ -103,13 +119,17 @@ fn report_text_command(args : ArrayView[String]) -> CliResult {
   }
   match parse_report_options(args, 3) {
     Err(message) => error_result(message)
-    Ok(options) => {
-      let report = @moonguard.diff_interfaces(args[1], args[2])
-      match apply_ignore_file(report, options.ignore_file) {
+    Ok(parsed_options) =>
+      match resolve_report_options(parsed_options) {
         Err(message) => error_result(message)
-        Ok(filtered) => ok_result(render_report(filtered, options.format))
+        Ok(options) => {
+          let report = @moonguard.diff_interfaces(args[1], args[2])
+          match apply_ignore_file(report, options.ignore_file) {
+            Err(message) => error_result(message)
+            Ok(filtered) => ok_result(render_report(filtered, options.format))
+          }
+        }
       }
-    }
   }
 }
 
@@ -120,13 +140,18 @@ fn report_files_command(args : ArrayView[String]) -> CliResult {
   }
   match parse_report_options(args, 3) {
     Err(message) => error_result(message)
-    Ok(format) =>
-      match diff_file_report(args[1], args[2]) {
+    Ok(parsed_options) =>
+      match resolve_report_options(parsed_options) {
         Err(message) => error_result(message)
-        Ok(report) =>
-          match apply_ignore_file(report, format.ignore_file) {
+        Ok(options) =>
+          match diff_file_report(args[1], args[2]) {
             Err(message) => error_result(message)
-            Ok(filtered) => ok_result(render_report(filtered, format.format))
+            Ok(report) =>
+              match apply_ignore_file(report, options.ignore_file) {
+                Err(message) => error_result(message)
+                Ok(filtered) =>
+                  ok_result(render_report(filtered, options.format))
+              }
           }
       }
   }
@@ -139,18 +164,23 @@ fn report_dirs_command(args : ArrayView[String]) -> CliResult {
   }
   match parse_report_options(args, 3) {
     Err(message) => error_result(message)
-    Ok(format) =>
-      match diff_dir_package_report(args[1], args[2]) {
+    Ok(parsed_options) =>
+      match resolve_report_options(parsed_options) {
         Err(message) => error_result(message)
-        Ok(package_report) =>
-          match apply_ignore_file(package_report.report, format.ignore_file) {
+        Ok(options) =>
+          match diff_dir_package_report(args[1], args[2]) {
             Err(message) => error_result(message)
-            Ok(filtered) =>
-              package_result(
-                filtered,
-                package_report.diagnostics,
-                format.format,
-              )
+            Ok(package_report) =>
+              match
+                apply_ignore_file(package_report.report, options.ignore_file) {
+                Err(message) => error_result(message)
+                Ok(filtered) =>
+                  package_result(
+                    filtered,
+                    package_report.diagnostics,
+                    options.format,
+                  )
+              }
           }
       }
   }
@@ -163,20 +193,25 @@ fn check_dirs_command(args : ArrayView[String]) -> CliResult {
   }
   match parse_check_options(args, 3) {
     Err(message) => error_result(message)
-    Ok(options) =>
-      match diff_dir_package_report(args[1], args[2]) {
+    Ok(parsed_options) =>
+      match resolve_check_options(parsed_options) {
         Err(message) => error_result(message)
-        Ok(package_report) =>
-          match apply_ignore_file(package_report.report, options.ignore_file) {
+        Ok(options) =>
+          match diff_dir_package_report(args[1], args[2]) {
             Err(message) => error_result(message)
-            Ok(filtered) =>
-              check_package_result(
-                filtered,
-                package_report.diagnostics,
-                options.current,
-                options.next,
-                options.format,
-              )
+            Ok(package_report) =>
+              match
+                apply_ignore_file(package_report.report, options.ignore_file) {
+                Err(message) => error_result(message)
+                Ok(filtered) =>
+                  check_package_result(
+                    filtered,
+                    package_report.diagnostics,
+                    options.current,
+                    options.next,
+                    options.format,
+                  )
+              }
           }
       }
   }
@@ -189,24 +224,29 @@ fn inventory_dir_command(args : ArrayView[String]) -> CliResult {
   }
   match parse_report_options(args, 2) {
     Err(message) => error_result(message)
-    Ok(options) => {
-      if options.ignore_file.length() > 0 {
-        return error_result(
-          "error: inventory-dir does not support --ignore-file",
-        )
-      }
-      let files = list_interface_files_raw(args[1])
-      if files.has_prefix(read_error_prefix) {
-        let message = files[read_error_prefix.length():].to_owned()
-        return error_result(
-          "error: cannot list interface directory '\{args[1]}': \{message}",
-        )
-      }
-      match read_dir_snapshot(args[1], parse_file_list(files[:]), "target") {
+    Ok(parsed_options) =>
+      match resolve_report_options(parsed_options) {
         Err(message) => error_result(message)
-        Ok(snapshot) => inventory_result(snapshot, options.format)
+        Ok(options) => {
+          if options.ignore_file.length() > 0 {
+            return error_result(
+              "error: inventory-dir does not support --ignore-file",
+            )
+          }
+          let files = list_interface_files_raw(args[1])
+          if files.has_prefix(read_error_prefix) {
+            let message = files[read_error_prefix.length():].to_owned()
+            return error_result(
+              "error: cannot list interface directory '\{args[1]}': \{message}",
+            )
+          }
+          match
+            read_dir_snapshot(args[1], parse_file_list(files[:]), "target") {
+            Err(message) => error_result(message)
+            Ok(snapshot) => inventory_result(snapshot, options.format)
+          }
+        }
       }
-    }
   }
 }
 
@@ -236,19 +276,23 @@ fn check_files_command(args : ArrayView[String]) -> CliResult {
   }
   match parse_check_options(args, 3) {
     Err(message) => error_result(message)
-    Ok(options) =>
-      match diff_file_report(args[1], args[2]) {
+    Ok(parsed_options) =>
+      match resolve_check_options(parsed_options) {
         Err(message) => error_result(message)
-        Ok(report) =>
-          match apply_ignore_file(report, options.ignore_file) {
+        Ok(options) =>
+          match diff_file_report(args[1], args[2]) {
             Err(message) => error_result(message)
-            Ok(filtered) =>
-              check_report_result(
-                filtered,
-                options.current,
-                options.next,
-                options.format,
-              )
+            Ok(report) =>
+              match apply_ignore_file(report, options.ignore_file) {
+                Err(message) => error_result(message)
+                Ok(filtered) =>
+                  check_report_result(
+                    filtered,
+                    options.current,
+                    options.next,
+                    options.format,
+                  )
+              }
           }
       }
   }
@@ -432,12 +476,205 @@ fn parse_file_list(raw : StringView) -> Array[String] {
 }
 
 ///|
+fn resolve_report_options(
+  options : ReportOptions,
+) -> Result[ReportOptions, String] {
+  if options.config_file.length() == 0 {
+    return Ok(options)
+  }
+  match load_cli_config(options.config_file) {
+    Err(message) => Err(message)
+    Ok(config) => Ok(merge_report_options(options, config))
+  }
+}
+
+///|
+fn resolve_check_options(
+  options : CheckOptions,
+) -> Result[CheckOptions, String] {
+  let resolved = if options.config_file.length() == 0 {
+    options
+  } else {
+    match load_cli_config(options.config_file) {
+      Err(message) => return Err(message)
+      Ok(config) => merge_check_options(options, config)
+    }
+  }
+  if resolved.current.length() == 0 {
+    Err("error: check requires --current major.minor.patch")
+  } else if resolved.next.length() == 0 {
+    Err("error: check requires --next major.minor.patch")
+  } else {
+    Ok(resolved)
+  }
+}
+
+///|
+fn load_cli_config(path : String) -> Result[CliConfig, String] {
+  let text = read_file_raw(path)
+  if text.has_prefix(read_error_prefix) {
+    let message = text[read_error_prefix.length():].to_owned()
+    return Err("error: cannot read config file '\{path}': \{message}")
+  }
+  parse_cli_config(path, text)
+}
+
+///|
+fn merge_report_options(
+  options : ReportOptions,
+  config : CliConfig,
+) -> ReportOptions {
+  let format = if options.has_format || config.format.length() == 0 {
+    options.format
+  } else {
+    config.format
+  }
+  let ignore_file = if options.has_ignore_file ||
+    config.ignore_file.length() == 0 {
+    options.ignore_file
+  } else {
+    config.ignore_file
+  }
+  {
+    format,
+    ignore_file,
+    config_file: options.config_file,
+    has_format: options.has_format || config.format.length() > 0,
+    has_ignore_file: options.has_ignore_file || config.ignore_file.length() > 0,
+  }
+}
+
+///|
+fn merge_check_options(
+  options : CheckOptions,
+  config : CliConfig,
+) -> CheckOptions {
+  let report_options = merge_report_options(
+    {
+      format: options.format,
+      ignore_file: options.ignore_file,
+      config_file: options.config_file,
+      has_format: options.has_format,
+      has_ignore_file: options.has_ignore_file,
+    },
+    config,
+  )
+  let current = if options.has_current || config.current.length() == 0 {
+    options.current
+  } else {
+    config.current
+  }
+  let next = if options.has_next || config.next.length() == 0 {
+    options.next
+  } else {
+    config.next
+  }
+  {
+    current,
+    next,
+    format: report_options.format,
+    ignore_file: report_options.ignore_file,
+    config_file: options.config_file,
+    has_current: options.has_current || config.current.length() > 0,
+    has_next: options.has_next || config.next.length() > 0,
+    has_format: report_options.has_format,
+    has_ignore_file: report_options.has_ignore_file,
+  }
+}
+
+///|
+fn parse_cli_config(path : String, text : String) -> Result[CliConfig, String] {
+  let errors : Array[String] = []
+  let mut format = ""
+  let mut ignore_file = ""
+  let mut current = ""
+  let mut next = ""
+  let mut line_number = 1
+  for raw_line in split_lines(text[:]) {
+    let line = strip_config_comment(raw_line).trim()
+    if line.length() > 0 {
+      match parse_config_assignment(line) {
+        None => errors.push("line \{line_number}: expected KEY = VALUE")
+        Some((key, value)) =>
+          if key.length() == 0 {
+            errors.push("line \{line_number}: config key must not be empty")
+          } else if value.length() == 0 {
+            errors.push(
+              "line \{line_number}: config value for '\{key}' must not be empty",
+            )
+          } else if key == "format" {
+            match normalize_format(value) {
+              None =>
+                errors.push(
+                  "line \{line_number}: unsupported report format '\{value}'",
+                )
+              Some(normalized) => format = normalized
+            }
+          } else if key == "ignore_file" || key == "ignore-file" {
+            ignore_file = value
+          } else if key == "current" {
+            current = value
+          } else if key == "next" {
+            next = value
+          } else {
+            errors.push("line \{line_number}: unknown config key '\{key}'")
+          }
+      }
+    }
+    line_number += 1
+  }
+  if errors.is_empty() {
+    Ok({ format, ignore_file, current, next })
+  } else {
+    Err(render_config_errors(path, errors))
+  }
+}
+
+///|
+fn strip_config_comment(line : StringView) -> StringView {
+  match line.find("#") {
+    Some(index) => line.view(start_offset=0, end_offset=index)
+    None => line
+  }
+}
+
+///|
+fn parse_config_assignment(line : StringView) -> (String, String)? {
+  match line.find("=") {
+    Some(index) =>
+      Some(
+        (
+          line.view(start_offset=0, end_offset=index).trim().to_owned(),
+          line.view(start_offset=index + 1).trim().to_owned(),
+        ),
+      )
+    None => None
+  }
+}
+
+///|
+fn render_config_errors(config_file : String, errors : Array[String]) -> String {
+  let out = StringBuilder()
+  out.write("error: invalid config file '")
+  out.write(config_file)
+  out.write("'")
+  for error in errors {
+    out.write("\n  ")
+    out.write(error)
+  }
+  out.to_string()
+}
+
+///|
 fn parse_report_options(
   args : ArrayView[String],
   start : Int,
 ) -> Result[ReportOptions, String] {
   let mut format = "markdown"
   let mut ignore_file = ""
+  let mut config_file = ""
+  let mut has_format = false
+  let mut has_ignore_file = false
   let mut i = start
   while i < args.length() {
     let option = args[i]
@@ -447,7 +684,10 @@ fn parse_report_options(
       }
       match normalize_format(args[i + 1]) {
         None => return Err("error: unsupported report format '\{args[i + 1]}'")
-        Some(value) => format = value
+        Some(value) => {
+          format = value
+          has_format = true
+        }
       }
       i += 2
     } else if option == "--ignore-file" {
@@ -455,12 +695,19 @@ fn parse_report_options(
         return Err("error: --ignore-file requires a path")
       }
       ignore_file = args[i + 1]
+      has_ignore_file = true
+      i += 2
+    } else if option == "--config" {
+      if i + 1 >= args.length() {
+        return Err("error: --config requires a path")
+      }
+      config_file = args[i + 1]
       i += 2
     } else {
       return Err("error: unknown option '\{option}'")
     }
   }
-  Ok({ format, ignore_file })
+  Ok({ format, ignore_file, config_file, has_format, has_ignore_file })
 }
 
 ///|
@@ -472,6 +719,11 @@ fn parse_check_options(
   let mut next = ""
   let mut format = "markdown"
   let mut ignore_file = ""
+  let mut config_file = ""
+  let mut has_current = false
+  let mut has_next = false
+  let mut has_format = false
+  let mut has_ignore_file = false
   let mut i = start
   while i < args.length() {
     let option = args[i]
@@ -480,12 +732,14 @@ fn parse_check_options(
         return Err("error: --current requires a major.minor.patch version")
       }
       current = args[i + 1]
+      has_current = true
       i += 2
     } else if option == "--next" {
       if i + 1 >= args.length() {
         return Err("error: --next requires a major.minor.patch version")
       }
       next = args[i + 1]
+      has_next = true
       i += 2
     } else if option == "--format" {
       if i + 1 >= args.length() {
@@ -493,7 +747,10 @@ fn parse_check_options(
       }
       match normalize_format(args[i + 1]) {
         None => return Err("error: unsupported report format '\{args[i + 1]}'")
-        Some(value) => format = value
+        Some(value) => {
+          format = value
+          has_format = true
+        }
       }
       i += 2
     } else if option == "--ignore-file" {
@@ -501,18 +758,29 @@ fn parse_check_options(
         return Err("error: --ignore-file requires a path")
       }
       ignore_file = args[i + 1]
+      has_ignore_file = true
+      i += 2
+    } else if option == "--config" {
+      if i + 1 >= args.length() {
+        return Err("error: --config requires a path")
+      }
+      config_file = args[i + 1]
       i += 2
     } else {
       return Err("error: unknown option '\{option}'")
     }
   }
-  if current.length() == 0 {
-    Err("error: check requires --current major.minor.patch")
-  } else if next.length() == 0 {
-    Err("error: check requires --next major.minor.patch")
-  } else {
-    Ok({ current, next, format, ignore_file })
-  }
+  Ok({
+    current,
+    next,
+    format,
+    ignore_file,
+    config_file,
+    has_current,
+    has_next,
+    has_format,
+    has_ignore_file,
+  })
 }
 
 ///|
@@ -605,17 +873,18 @@ fn help_text() -> String {
     #|moonguard 0.1.0
     #|
     #|Usage:
-    #|  moon run --target js cmd/main -- report old.mbti new.mbti [--format markdown|json] [--ignore-file path]
-    #|  moon run --target js cmd/main -- report-dir old_dir new_dir [--format markdown|json] [--ignore-file path]
-    #|  moon run --target js cmd/main -- inventory-dir dir [--format markdown|json]
-    #|  moon run --target js cmd/main -- check old.mbti new.mbti --current 0.1.0 --next 0.2.0 [--format markdown|json] [--ignore-file path]
-    #|  moon run --target js cmd/main -- check-dir old_dir new_dir --current 0.1.0 --next 0.2.0 [--format markdown|json] [--ignore-file path]
-    #|  moon run cmd/main -- report-text "pub fn old() -> Unit" "pub fn new() -> Unit" [--format markdown|json] [--ignore-file path]
+    #|  moon run --target js cmd/main -- report old.mbti new.mbti [--format markdown|json] [--ignore-file path] [--config path]
+    #|  moon run --target js cmd/main -- report-dir old_dir new_dir [--format markdown|json] [--ignore-file path] [--config path]
+    #|  moon run --target js cmd/main -- inventory-dir dir [--format markdown|json] [--config path]
+    #|  moon run --target js cmd/main -- check old.mbti new.mbti --current 0.1.0 --next 0.2.0 [--format markdown|json] [--ignore-file path] [--config path]
+    #|  moon run --target js cmd/main -- check-dir old_dir new_dir --current 0.1.0 --next 0.2.0 [--format markdown|json] [--ignore-file path] [--config path]
+    #|  moon run cmd/main -- report-text "pub fn old() -> Unit" "pub fn new() -> Unit" [--format markdown|json] [--ignore-file path] [--config path]
     #|  moon run cmd/main -- --version
     #|  moon run cmd/main -- --help
     #|
     #|Compare MoonBit interface snapshots and print compatibility reports.
     #|The check command exits with 1 when the proposed SemVer bump is insufficient.
+    #|Config files use `key = value` lines for format, ignore_file, current, and next.
     #|Ignore files use rules such as `ignore fn debug_tmp`.
   help
 }
