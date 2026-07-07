@@ -8,7 +8,7 @@ minor, or major.
 The project is being built for the MoonBit open-source ecosystem competition as
 engineering infrastructure for package authors and CI workflows.
 
-## MVP Features
+## Current Features
 
 - Parse public declarations from `.mbti`-style interface text.
 - Normalize whitespace and declaration order.
@@ -22,9 +22,14 @@ engineering infrastructure for package authors and CI workflows.
   - removed public API -> major
   - changed signature -> major
   - unchanged public API -> patch
-- Render a Markdown compatibility report suitable for PR comments or release
-  notes.
-- Read `.mbti` files from the CLI when running on the JS backend.
+- Render Markdown and JSON compatibility reports for PR comments, release
+  notes, and downstream tooling.
+- Validate whether a proposed SemVer bump satisfies the recommended impact.
+- Filter accepted or experimental changes with simple ignore rules.
+- Compare package directories, detect duplicate symbols and directory
+  diagnostics, and render snapshot inventories.
+- Read `.mbti` files and directories from the CLI when running on the JS
+  backend.
 
 ## Installation
 
@@ -51,7 +56,7 @@ The report recommendation is `patch`, `minor`, or `major`.
 
 ## CLI Usage
 
-Compare two `.mbti` files:
+Compare two `.mbti` files with the default Markdown report:
 
 ```sh
 moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti
@@ -71,13 +76,50 @@ Output:
 | minor | added | `fn parse` | `parse(String) -> Unit` |
 ```
 
-The file-reading command currently requires the JS backend because the MVP uses
-Node `fs.readFileSync` through a MoonBit JS extern.
+Render the same report as JSON:
+
+```sh
+moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti --format json
+```
+
+Check whether a planned version bump is sufficient:
+
+```sh
+moon run --target js cmd/main -- check fixtures/old.mbti fixtures/new.mbti --current 0.1.0 --next 0.2.0
+```
+
+Compare package directories and inspect a generated interface inventory:
+
+```sh
+moon run --target js cmd/main -- report-dir fixtures/dir-old fixtures/dir-new
+moon run --target js cmd/main -- inventory-dir fixtures/dir-new --format json
+```
+
+Ignore files filter report changes without changing the parsed API model:
+
+```text
+ignore fn debug_tmp temporary demo API
+ignore field Options.experimental
+ignore * pkg.generated.mbti::internal_*
+```
+
+```sh
+moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti --ignore-file fixtures/ignore-render.rules
+```
+
+File and directory commands currently require the JS backend because the CLI
+uses Node `fs.readFileSync` and directory APIs through MoonBit JS externs.
+For strict CI exit-code checks, run the generated JS with Node directly after a
+JS-target command has built it:
+
+```sh
+node _build/js/debug/build/cmd/main/main.js check fixtures/old.mbti fixtures/new.mbti --current 0.1.0 --next 0.2.0
+```
 
 For quick demos without files, use `report-text`:
 
 ```sh
-moon run cmd/main -- report-text "pub fn render(String) -> String" "pub fn render(String, Options) -> String"
+moon run cmd/main -- report-text "pub fn render(String) -> String" "pub fn render(String, Options) -> String" --format json
 ```
 
 ## Compatibility Rules
@@ -100,15 +142,23 @@ remain visible instead of being silently ignored.
 Common checks:
 
 ```sh
-moon info
 moon fmt
+moon info
 moon check
 moon test
-moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti
+moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti --format json
+moon run --target js cmd/main -- report-dir fixtures/dir-old fixtures/dir-new
+moon run --target js cmd/main -- inventory-dir fixtures/dir-new
+node _build/js/debug/build/cmd/main/main.js check fixtures/old.mbti fixtures/new.mbti --current 0.1.0 --next 0.2.0
 ```
 
 Generated `pkg.generated.mbti` files are kept in the repository so interface
 changes are reviewable after `moon info`.
+
+Competition source-line tracking counts repository `.mbt` source files and
+excludes generated `_build` output. The current tracked source total is 5200
+lines, so future code changes should keep the project above the 5000-line
+threshold.
 
 See [docs/competition-plan.md](docs/competition-plan.md) for the competition
 plan.

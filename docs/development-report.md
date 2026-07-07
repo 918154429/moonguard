@@ -16,9 +16,9 @@ MoonGuard targets that gap directly. It is narrower than a general Markdown or
 documentation tool, but its value is more specific to MoonBit's package
 ecosystem.
 
-## Current MVP
+## Current Implementation
 
-The MVP implements a pure library workflow:
+MoonGuard now implements both a library workflow and a JS-target CLI workflow:
 
 ```text
 old interface text -> parse_interface -> API model \
@@ -39,7 +39,18 @@ Implemented capabilities:
 - Detect added public API as `minor`.
 - Detect removed public API as `major`.
 - Detect changed public signatures as `major`.
-- Render Markdown compatibility reports.
+- Render Markdown and JSON compatibility reports.
+- Parse and validate `major.minor.patch` SemVer versions.
+- Check whether a proposed next version satisfies the report recommendation.
+- Parse simple ignore-rule files and filter accepted or experimental API
+  changes from reports.
+- Build package snapshots from multiple `.mbti` files.
+- Compare package directories with file namespaces so same-named symbols in
+  different files do not overwrite each other.
+- Report directory diagnostics such as empty input, no `.mbti` files, duplicate
+  symbols, and file-read failures.
+- Render package-level comparison reports and snapshot inventories in Markdown
+  or JSON.
 - Provide file-based CLI comparison on the JS backend:
 
 ```sh
@@ -52,6 +63,15 @@ moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti
 moon run cmd/main -- report-text "pub fn old() -> Unit" "pub fn new() -> Unit"
 ```
 
+- Provide CI-oriented CLI commands:
+
+```sh
+moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti --format json
+moon run --target js cmd/main -- check fixtures/old.mbti fixtures/new.mbti --current 0.1.0 --next 0.2.0
+moon run --target js cmd/main -- report-dir fixtures/dir-old fixtures/dir-new
+moon run --target js cmd/main -- inventory-dir fixtures/dir-new --format json
+```
+
 ## Architecture
 
 Current implementation is intentionally compact while the grammar is still
@@ -61,12 +81,14 @@ being validated:
   - public API model
   - interface parser
   - diff engine
-  - SemVer recommendation
-  - Markdown report renderer
+  - SemVer recommendation and version-bump checks
+  - ignore-rule parser and report filtering
+  - package snapshot model and diagnostics
+  - Markdown and JSON report renderers
 - `cmd/main/main.mbt`
-  - CLI demo entry point
+  - CLI entry point for text, file, directory, inventory, and check commands
 - `cmd/main/read_file_js.mbt`
-  - JS backend file reading through Node `fs.readFileSync`
+  - JS backend file and directory reading through Node APIs
 - `cmd/main/read_file_nonjs.mbt`
   - clear fallback message for non-JS backends
 - `moonguard_test.mbt`
@@ -80,19 +102,25 @@ separate modules once more grammar coverage is added.
 ## Design Decisions
 
 The parser starts from `.mbti`-style public declaration lines instead of trying
-to parse all MoonBit source syntax. This keeps the MVP focused on release
-compatibility, which is the actual workflow MoonGuard needs to support.
+to parse all MoonBit source syntax. This keeps the implementation focused on
+release compatibility, which is the actual workflow MoonGuard needs to support.
 
-Compatibility rules are conservative:
+Compatibility and version rules are conservative:
 
 - Removing public API is breaking.
 - Changing a public signature is breaking.
 - Adding public API is minor-compatible.
 - No public API model change is patch.
+- A `major` recommendation requires a major version increase.
+- A `minor` recommendation accepts a minor or major version increase.
+- A `patch` recommendation accepts any non-decreasing version.
 
 Unrecognized `pub` lines are not discarded. They are retained as `unknown`
 items so that public surface changes remain visible until the parser gains
 first-class support for that syntax.
+
+Ignore rules only filter the rendered report and derived recommendation. They
+do not change `parse_interface`, raw snapshots, or the underlying API model.
 
 ## Testing
 
@@ -108,8 +136,14 @@ Current tests cover:
 - changed signature detection;
 - unchanged API as patch;
 - Markdown report rendering;
+- JSON report rendering;
+- SemVer parsing and version-bump validation;
+- ignore-rule parsing and filtering;
+- package snapshot construction and diagnostics;
+- package report and inventory rendering;
 - CLI argument handling;
-- JS-target file CLI smoke test;
+- JS-target file and directory CLI smoke tests;
+- CLI check output and exit-code intent;
 - unknown public declaration retention.
 
 Validation commands:
@@ -120,13 +154,16 @@ moon info
 moon check
 moon test
 moon run cmd/main -- --version
-moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti
+moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti --format json
+moon run --target js cmd/main -- report-dir fixtures/dir-old fixtures/dir-new
+moon run --target js cmd/main -- inventory-dir fixtures/dir-new
+node _build/js/debug/build/cmd/main/main.js check fixtures/old.mbti fixtures/new.mbti --current 0.1.0 --next 0.2.0
 ```
 
 Current local result:
 
 ```text
-Total tests: 19, passed: 19, failed: 0.
+Total tests: 111, passed: 111, failed: 0.
 ```
 
 ## Known Limits
@@ -134,8 +171,13 @@ Total tests: 19, passed: 19, failed: 0.
 - File-based CLI input currently requires the JS backend and Node runtime.
 - Parser coverage is still line-oriented and intentionally focused on generated
   `.mbti` shapes rather than full MoonBit source syntax.
-- JSON report output is planned but not implemented in the MVP.
-- Directory/package-level comparison is planned but not implemented in the MVP.
+- `moon run --target js` does not reliably propagate a nonzero JavaScript
+  process exit status. The generated JS file does return the intended status
+  when run directly with Node, so CI uses direct Node execution for strict
+  failing `check` assertions.
+- The tracked `.mbt` source total is currently 5200 lines excluding `_build`.
+  Future implementation slices should keep the project comfortably above the
+  5000-line competition threshold.
 
 ## Roadmap
 
@@ -144,15 +186,17 @@ Near-term work:
 - Add native file input support when a stable MoonBit file IO path is available.
 - Split implementation into parser, model, diff, semver, report, and CLI
   modules.
-- Add fixtures based on generated `.mbti` files.
-- Add JSON report output.
-- Add package-directory comparison.
+- Add baseline-oriented release workflows for comparing a package against the
+  last published interface snapshot.
+- Add lightweight project configuration for common CLI options such as current
+  version, next version, format, and ignore file.
+- Continue mining real generated `.mbti` files for parser coverage gaps.
 - Add rule documentation with concrete breaking/minor examples.
 - Add GitHub Actions usage documentation.
 
 ## AI Collaboration Notes
 
 AI assistance was used for ecosystem-gap analysis, project direction selection,
-MVP scoping, implementation drafting, and test iteration. The final direction
+initial scoping, implementation drafting, and test iteration. The final direction
 was chosen after comparing generic Markdown tooling with MoonBit-specific
 engineering infrastructure needs.
