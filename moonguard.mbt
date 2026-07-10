@@ -195,6 +195,14 @@ pub fn parse_interface(text : String) -> Array[ApiItem] {
           container_name = item.name
         }
         items.push(item)
+        for
+          inline_item in parse_inline_container_items(
+            item.kind,
+            item.name,
+            line[:],
+          ) {
+          items.push(inline_item)
+        }
         for derive_item in parse_closing_derives(item.name, line[:]) {
           items.push(derive_item)
         }
@@ -1523,7 +1531,7 @@ fn parse_public_item(line : StringView, attributes : Array[String]) -> ApiItem? 
     )
   } else if public_body.has_prefix("struct ") {
     Some(
-      make_item_with_visibility(
+      make_container_item_with_visibility(
         "struct",
         public_body.view(start_offset=7),
         visibility,
@@ -1532,7 +1540,7 @@ fn parse_public_item(line : StringView, attributes : Array[String]) -> ApiItem? 
     )
   } else if public_body.has_prefix("enum ") {
     Some(
-      make_item_with_visibility(
+      make_container_item_with_visibility(
         "enum",
         public_body.view(start_offset=5),
         visibility,
@@ -1541,7 +1549,7 @@ fn parse_public_item(line : StringView, attributes : Array[String]) -> ApiItem? 
     )
   } else if public_body.has_prefix("trait ") {
     Some(
-      make_item_with_visibility(
+      make_container_item_with_visibility(
         "trait",
         public_body.view(start_offset=6),
         visibility,
@@ -1576,7 +1584,7 @@ fn parse_public_item(line : StringView, attributes : Array[String]) -> ApiItem? 
     )
   } else if public_body.has_prefix("suberror ") {
     Some(
-      make_item_with_visibility(
+      make_container_item_with_visibility(
         "suberror",
         public_body.view(start_offset=9),
         visibility,
@@ -1634,6 +1642,32 @@ fn make_item_with_visibility(
       apply_visibility(signature, visibility),
       attributes,
     ),
+  }
+}
+
+///|
+fn make_container_item_with_visibility(
+  kind : String,
+  body : StringView,
+  visibility : String,
+  attributes : Array[String],
+) -> ApiItem {
+  let signature = normalize_signature(container_declaration(body))
+  {
+    kind,
+    name: extract_name(signature[:]),
+    signature: apply_attributes(
+      apply_visibility(signature, visibility),
+      attributes,
+    ),
+  }
+}
+
+///|
+fn container_declaration(body : StringView) -> StringView {
+  match body.find("{") {
+    Some(index) => body.view(start_offset=0, end_offset=index).trim()
+    None => strip_inline_derive(body)
   }
 }
 
@@ -1722,6 +1756,65 @@ fn parse_container_item(
   } else {
     None
   }
+}
+
+///|
+fn parse_inline_container_items(
+  kind : String,
+  parent : String,
+  line : StringView,
+) -> Array[ApiItem] {
+  let items : Array[ApiItem] = []
+  if !is_public_container_kind(kind) || !has_close_brace(line) {
+    return items
+  }
+  match brace_body(line) {
+    Some(body) =>
+      for part in split_inline_container_members(body) {
+        let part = part.trim()
+        if part.length() > 0 {
+          match parse_container_item(kind, parent, part, []) {
+            Some(item) => items.push(item)
+            None => ()
+          }
+        }
+      }
+    None => ()
+  }
+  items
+}
+
+///|
+fn split_inline_container_members(text : StringView) -> Array[StringView] {
+  let parts : Array[StringView] = []
+  let mut start = 0
+  let mut round_depth = 0
+  let mut square_depth = 0
+  let mut curly_depth = 0
+  for i in 0..<text.length() {
+    let ch = text.unsafe_get(i).unsafe_to_char()
+    if ch == '(' {
+      round_depth += 1
+    } else if ch == ')' {
+      round_depth -= 1
+    } else if ch == '[' {
+      square_depth += 1
+    } else if ch == ']' {
+      square_depth -= 1
+    } else if ch == '{' {
+      curly_depth += 1
+    } else if ch == '}' {
+      curly_depth -= 1
+    } else if (ch == ',' || ch == ';') &&
+      round_depth == 0 &&
+      square_depth == 0 &&
+      curly_depth == 0 {
+      parts.push(text.view(start_offset=start, end_offset=i))
+      start = i + 1
+    }
+  }
+  parts.push(text.view(start_offset=start, end_offset=text.length()))
+  parts
 }
 
 ///|
@@ -1884,9 +1977,14 @@ fn make_trait_method(
 
 ///|
 fn opens_public_container(kind : String, line : StringView) -> Bool {
-  (kind == "struct" || kind == "enum" || kind == "trait" || kind == "suberror") &&
+  is_public_container_kind(kind) &&
   has_open_brace(line) &&
   !has_close_brace(line)
+}
+
+///|
+fn is_public_container_kind(kind : String) -> Bool {
+  kind == "struct" || kind == "enum" || kind == "trait" || kind == "suberror"
 }
 
 ///|

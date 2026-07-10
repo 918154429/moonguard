@@ -1945,6 +1945,98 @@ test "added trait method is a major api change" {
 }
 
 ///|
+test "single-line and multi-line containers have identical api" {
+  let struct_report = @moonguard.diff_interfaces(
+    (
+      #|pub struct Options {
+      #|  mode : String
+      #|}
+    ),
+    "pub struct Options { mode : String }",
+  )
+  assert_true(struct_report.recommendation == @moonguard.Patch)
+  inspect(struct_report.changes.length(), content="0")
+  let enum_report = @moonguard.diff_interfaces(
+    (
+      #|pub enum Level {
+      #|  Basic
+      #|}
+    ),
+    "pub enum Level { Basic }",
+  )
+  assert_true(enum_report.recommendation == @moonguard.Patch)
+  inspect(enum_report.changes.length(), content="0")
+  let trait_report = @moonguard.diff_interfaces(
+    (
+      #|pub(open) trait Render {
+      #|  fn render(Self) -> String
+      #|}
+    ),
+    "pub(open) trait Render { fn render(Self) -> String }",
+  )
+  assert_true(trait_report.recommendation == @moonguard.Patch)
+  inspect(trait_report.changes.length(), content="0")
+  let suberror_report = @moonguard.diff_interfaces(
+    (
+      #|pub suberror IoError {
+      #|  NotFound(String)
+      #|}
+    ),
+    "pub suberror IoError { NotFound(String) }",
+  )
+  assert_true(suberror_report.recommendation == @moonguard.Patch)
+  inspect(suberror_report.changes.length(), content="0")
+}
+
+///|
+test "single-line containers still expose real nested changes" {
+  let struct_report = @moonguard.diff_interfaces(
+    "pub struct Options { mode : String }", "pub struct Options { mode : Int }",
+  )
+  assert_true(struct_report.recommendation == @moonguard.Major)
+  inspect(struct_report.changes.length(), content="1")
+  assert_true(struct_report.changes[0].kind == @moonguard.Changed)
+  inspect(struct_report.changes[0].item_kind, content="field")
+  inspect(struct_report.changes[0].name, content="Options.mode")
+  let enum_report = @moonguard.diff_interfaces(
+    "pub enum Result { Ok(String) }", "pub enum Result { Ok(Int) }",
+  )
+  assert_true(enum_report.recommendation == @moonguard.Major)
+  inspect(enum_report.changes.length(), content="1")
+  assert_true(enum_report.changes[0].kind == @moonguard.Changed)
+  inspect(enum_report.changes[0].item_kind, content="constructor")
+  inspect(enum_report.changes[0].name, content="Result.Ok")
+}
+
+///|
+test "added suberror constructor is a conservative major change" {
+  let report = @moonguard.diff_interfaces(
+    "pub suberror IoError { NotFound(String) }", "pub suberror IoError { NotFound(String); PermissionDenied }",
+  )
+  assert_true(report.recommendation == @moonguard.Major)
+  inspect(report.changes.length(), content="1")
+  assert_true(report.changes[0].kind == @moonguard.Added)
+  inspect(report.changes[0].item_kind, content="constructor")
+  inspect(report.changes[0].name, content="IoError.PermissionDenied")
+}
+
+///|
+test "ordinary top-level additions remain minor" {
+  let report = @moonguard.diff_interfaces(
+    "pub fn render(String) -> String",
+    (
+      #|pub fn parse(String) -> Unit
+      #|pub fn render(String) -> String
+    ),
+  )
+  assert_true(report.recommendation == @moonguard.Minor)
+  inspect(report.changes.length(), content="1")
+  assert_true(report.changes[0].kind == @moonguard.Added)
+  inspect(report.changes[0].item_kind, content="fn")
+  inspect(report.changes[0].name, content="parse")
+}
+
+///|
 fn parsed_version_for_test(text : String) -> @moonguard.Version raise {
   match @moonguard.parse_version(text) {
     Some(version) => version
