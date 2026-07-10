@@ -343,6 +343,73 @@ test "check package result prefers diagnostic errors" {
 }
 
 ///|
+test "release-plan command validates paths and versions before directory reads" {
+  let missing_paths = run_args_result([
+    "moonguard", "release-plan", "--current", "1.2.3", "--next", "2.0.0",
+  ])
+  inspect(
+    missing_paths.output,
+    content="error: release-plan requires OLD_DIR and NEW_DIR",
+  )
+  inspect(missing_paths.exit_code, content="2")
+  let missing_versions = run_args_result([
+    "moonguard", "release-plan", "old-dir", "new-dir",
+  ])
+  inspect(
+    missing_versions.output,
+    content="error: check requires --current major.minor.patch",
+  )
+  inspect(missing_versions.exit_code, content="2")
+}
+
+///|
+test "release-plan result succeeds for a sufficient version bump" {
+  let report = @moonguard.diff_interfaces(
+    "pub fn render(String) -> String", "pub fn render(String, Options) -> String",
+  )
+  let result = release_plan_result(report, [], "1.2.3", "2.0.0", "markdown")
+  inspect(result.exit_code, content="0")
+  assert_true(result.output.contains("# MoonGuard Release Plan"))
+  assert_true(result.output.contains("- Status: **ready**"))
+  assert_true(
+    result.output.contains(
+      "- [x] Proposed version satisfies MoonGuard's recommendation.",
+    ),
+  )
+}
+
+///|
+test "release-plan result fails an insufficient version bump" {
+  let report = @moonguard.diff_interfaces(
+    "pub fn render(String) -> String", "pub fn render(String, Options) -> String",
+  )
+  let result = release_plan_result(report, [], "1.2.3", "1.3.0", "json")
+  inspect(result.exit_code, content="1")
+  assert_true(result.output.contains("\"status\": \"needs-version-bump\""))
+  assert_true(result.output.contains("\"ok\": false"))
+  assert_true(result.output.contains("\"required\": \"major\""))
+}
+
+///|
+test "release-plan result blocks publishing on diagnostic errors" {
+  let report = @moonguard.diff_interfaces("", "")
+  let snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file("", "pub fn broken() -> Unit"),
+  ])
+  let result = release_plan_result(
+    report,
+    snapshot.diagnostics,
+    "1.2.3",
+    "1.2.4",
+    "markdown",
+  )
+  inspect(result.exit_code, content="2")
+  assert_true(result.output.contains("- Status: **blocked**"))
+  assert_true(result.output.contains("empty-path"))
+  assert_true(result.output.contains("Fix diagnostic errors"))
+}
+
+///|
 test "parse cli config supports common keys" {
   match
     parse_cli_config(
@@ -788,6 +855,7 @@ test "help mentions file and text modes" {
   assert_true(help.contains("inventory-dir dir"))
   assert_true(help.contains("check old.mbti new.mbti"))
   assert_true(help.contains("check-dir old_dir new_dir"))
+  assert_true(help.contains("release-plan old_dir new_dir"))
   assert_true(help.contains("report-text"))
   assert_true(help.contains("--format markdown|json"))
   assert_true(help.contains("--ignore-file path"))

@@ -19,12 +19,28 @@ extern "js" fn list_interface_files_raw(root : String) -> String =
   #|      return "__MOONGUARD_READ_ERROR__:expected a directory"
   #|    }
   #|    const files = []
+  #|    const excludedDirectories = new Set([
+  #|      ".git",
+  #|      ".moonguard",
+  #|      ".mooncakes",
+  #|      ".tools",
+  #|      "_build",
+  #|      "build",
+  #|      "coverage",
+  #|      "dist",
+  #|      "fixtures",
+  #|      "node_modules",
+  #|      "target",
+  #|      "vendor",
+  #|    ])
   #|    const walk = (dir, rel) => {
   #|      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
   #|        const child = path.join(dir, entry.name)
   #|        const childRel = rel ? rel + "/" + entry.name : entry.name
   #|        if (entry.isDirectory()) {
-  #|          walk(child, childRel)
+  #|          if (!excludedDirectories.has(entry.name)) {
+  #|            walk(child, childRel)
+  #|          }
   #|        } else if (entry.isFile() && entry.name.endsWith(".mbti")) {
   #|          files.push(childRel)
   #|        }
