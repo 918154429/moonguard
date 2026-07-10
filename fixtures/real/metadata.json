@@ -1,0 +1,137 @@
+[
+  {
+    "sample": "extism-moonbit-pdk-host",
+    "repository": "extism/moonbit-pdk",
+    "path": "pdk/host/pkg.generated.mbti",
+    "commit": "2780e9bcc7d5950e729e050f7b065a5a5907e1f3",
+    "license": "Apache-2.0",
+    "bytes": 956,
+    "sha256": "a11ec8fea538ba6b5c7851669378bdd1b5e2652743e84ba7c7c83cca9d9a7639"
+  },
+  {
+    "sample": "mizchi-actrun",
+    "repository": "mizchi/actrun",
+    "path": "src/pkg.generated.mbti",
+    "commit": "3ea136d34e7ee071986bbaaad54e40aa496b8488",
+    "license": "Apache-2.0",
+    "bytes": 16096,
+    "sha256": "a91db0f9c57d2fe484f754a36486776375fdab35b528d7c84006f19c8792b9e5"
+  },
+  {
+    "sample": "mizchi-markdown",
+    "repository": "mizchi/markdown.mbt",
+    "path": "src/pkg.generated.mbti",
+    "commit": "e3055d1589e9e3444fd7565198c48509234ac5af",
+    "license": "MIT",
+    "bytes": 7180,
+    "sha256": "a5d002c9147b7584346e350efbe4cd43acd428bff4354a9973cc19bebd2a7383"
+  },
+  {
+    "sample": "moonbit-community-cmark",
+    "repository": "moonbit-community/cmark.mbt",
+    "path": "src/cmark/pkg.generated.mbti",
+    "commit": "d9979586000c7309a6441e16086bc4a12ef07ce7",
+    "license": "Apache-2.0",
+    "bytes": 13168,
+    "sha256": "b342f2042187a2617c3a6ae28d1cb350993e56c18bfe9bdf5ca8e3d129cbea03"
+  },
+  {
+    "sample": "moonbit-community-moonbitnes",
+    "repository": "moonbit-community/MoonbitNES",
+    "path": "lib/pkg.generated.mbti",
+    "commit": "71845b4d4288d9769fd15296a59eb0933181377e",
+    "license": "MIT",
+    "bytes": 907,
+    "sha256": "a03cbe592937ff4c0d90102416a8bfec976012939056b50948471c9bad36f379"
+  },
+  {
+    "sample": "moonbit-community-rabbita-dom",
+    "repository": "moonbit-community/rabbita",
+    "path": "rabbita/dom/pkg.generated.mbti",
+    "commit": "15efa09a46e6067e187fadabe75d972def6effb4",
+    "license": "Apache-2.0",
+    "bytes": 33774,
+    "sha256": "122d1a032347955057ed2bff19991e29ab559149d73484e8fde7bc55b89b7459"
+  },
+  {
+    "sample": "moonbitlang-async-http",
+    "repository": "moonbitlang/async",
+    "path": "src/http/pkg.generated.mbti",
+    "commit": "60f238393ae0aeedbb11bcd8e57aed5bb33a4fd0",
+    "license": "Apache-2.0",
+    "bytes": 5191,
+    "sha256": "05b84b47c28e0a3e4f7b29554c61d3c8e06b964232b1baa6f52f243a7a519cf0"
+  },
+  {
+    "sample": "moonbitlang-llvm-unsafe",
+    "repository": "moonbitlang/llvm.mbt",
+    "path": "unsafe/pkg.generated.mbti",
+    "commit": "a9dbe1f7817f8e88550c0098c1356da5f90d808a",
+    "license": "Apache-2.0",
+    "bytes": 116392,
+    "sha256": "0f66b5160d9ff39265af3475e6378391ed674d051859067cbbf44d9307a5b88a"
+  },
+  {
+    "sample": "moonbitlang-mbtcc-parser",
+    "repository": "moonbitlang/mbtcc",
+    "path": "parser/pkg.generated.mbti",
+    "commit": "39d58ef3a405f1118199cace27e4d7f6d2a6f7b6",
+    "license": "Apache-2.0",
+    "bytes": 21492,
+    "sha256": "0572cdfcefc2235495e419d1f3900f9becf290c4279ba7b461ce727cd42e7223"
+  },
+  {
+    "sample": "moonbitlang-moonllvm-ir",
+    "repository": "moonbitlang/MoonLLVM",
+    "path": "IR/pkg.generated.mbti",
+    "commit": "b99d1077c7e81890625e79d31be524143d85f1b2",
+    "license": "Apache-2.0",
+    "bytes": 56658,
+    "sha256": "012ab7f54d2ef3a87f12895420825de96d3304c73cb92a12d505710b5331cb0c"
+  },
+  {
+    "sample": "moonbitlang-python",
+    "repository": "moonbitlang/python.mbt",
+    "path": "pkg.generated.mbti",
+    "commit": "2039ba9923418fd8171e9c4dda40a193d87c19a9",
+    "license": "Apache-2.0",
+    "bytes": 6240,
+    "sha256": "b40f2ca96658a4431146b3d5707f77f6b2570bf03222c4170d31630e73250bdb"
+  },
+  {
+    "sample": "moonbitlang-quickcheck",
+    "repository": "moonbitlang/quickcheck",
+    "path": "src/pkg.generated.mbti",
+    "commit": "f953180a533593ad5ddda564a2c5467d30c83c2c",
+    "license": "Apache-2.0",
+    "bytes": 3232,
+    "sha256": "0ebf66eab4fdf252ea68a53378303a6385a9df604ae2ef1aadaa56c61f6588de"
+  },
+  {
+    "sample": "oboard-mio",
+    "repository": "oboard/mio",
+    "path": "pkg.generated.mbti",
+    "commit": "c7ba028fd4f2f6b3fdaecfb5d75ccd6a5dddb731",
+    "license": "Apache-2.0",
+    "bytes": 6493,
+    "sha256": "cb1e4eb66c48453557c7e0f162541ca810abe6d8d0772c3ad3bb170b38056c34"
+  },
+  {
+    "sample": "oboard-mocket",
+    "repository": "oboard/mocket",
+    "path": "pkg.generated.mbti",
+    "commit": "1d8db0787f9e48c723e9512e2e089cda6d14d17e",
+    "license": "Apache-2.0",
+    "bytes": 11605,
+    "sha256": "daf5979bfec0e17a6b6fde06b4ce30c9d7ad8ad519ad2d4dd706bdf222d3513b"
+  },
+  {
+    "sample": "trkbt10-indexion-kgf-types",
+    "repository": "trkbt10/indexion",
+    "path": "src/kgf/types/pkg.generated.mbti",
+    "commit": "2207c96c6f372961479a224e2f51942005279a7f",
+    "license": "Apache-2.0",
+    "bytes": 10274,
+    "sha256": "a0206fc73fafcb22c6325b2c8d494052e33fa36f5b02b2bb42a08ca39b5a79c9"
+  }
+]

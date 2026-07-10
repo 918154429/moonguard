@@ -1,0 +1,71 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbitlang/quickcheck"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/quickcheck/gen",
+  "moonbitlang/quickcheck/internal/state",
+  "moonbitlang/quickcheck/property",
+  "moonbitlang/quickcheck/shrink",
+}
+
+// Values
+pub fn[P : @property.Testable] callback(P, @state.Callback) -> @property.Property
+
+pub fn[P : @property.Testable] classify(P, Bool, String) -> @property.Property
+
+pub fn[P : @property.Testable, T : Show] collect(P, T) -> @property.Property
+
+pub fn[P : @property.Testable] counterexample(P, String) -> @property.Property
+
+pub fn[P : @property.Testable] filter(P, Bool) -> @property.Property
+
+pub fn[T : @property.Testable, A : @debug.Debug] forall(@gen.Gen[A], (A) -> T) -> @property.Property
+
+pub fn[T : @property.Testable, A : @debug.Debug] forall_shrink(@gen.Gen[A], (A) -> Iter[A], (A) -> T) -> @property.Property
+
+pub fn[P : @property.Testable] if_fail(P, () -> Unit) -> @property.Property
+
+pub fn[P : @property.Testable] label(P, String) -> @property.Property
+
+pub fn[P : @property.Testable] map_size(P, (Int) -> Int) -> @property.Property
+
+pub fn[P : @property.Testable] property(P) -> @property.Property
+
+pub fn[P : @property.Testable] quick_check(P, max_shrink? : Int, max_success? : Int, max_size? : Int, discard_ratio? : Int, expect? : @state.Expected, abort? : Bool, verbose? : Bool) -> Unit raise Failure
+
+pub fn[A : @moonbitlang/core/quickcheck.Arbitrary + @shrink.Shrink + @debug.Debug, B : @property.Testable] quick_check_fn((A) -> B, max_shrinks? : Int, max_success? : Int, max_size? : Int, discard_ratio? : Int, expect? : @state.Expected, abort? : Bool, verbose? : Bool) -> Unit raise Failure
+
+pub fn[A : @moonbitlang/core/quickcheck.Arbitrary + @shrink.Shrink + @debug.Debug, B : @property.Testable] quick_check_fn_error((A) -> B raise, max_shrinks? : Int, max_success? : Int, max_size? : Int, discard_ratio? : Int, expect? : @state.Expected, abort? : Bool, verbose? : Bool) -> Unit raise Failure
+
+pub fn[A : @moonbitlang/core/quickcheck.Arbitrary + @shrink.Shrink + @debug.Debug, B : @property.Testable] quick_check_fn_error_silence((A) -> B raise, max_shrinks? : Int, max_success? : Int, max_size? : Int, discard_ratio? : Int, expect? : @state.Expected, abort? : Bool, verbose? : Bool) -> String
+
+pub fn[A : @moonbitlang/core/quickcheck.Arbitrary + @shrink.Shrink + @debug.Debug, B : @property.Testable] quick_check_fn_silence((A) -> B, max_shrinks? : Int, max_success? : Int, max_size? : Int, discard_ratio? : Int, expect? : @state.Expected, abort? : Bool, verbose? : Bool) -> String
+
+pub fn[P : @property.Testable] quick_check_silence(P, max_shrink? : Int, max_success? : Int, max_size? : Int, discard_ratio? : Int, expect? : @state.Expected, abort? : Bool, verbose? : Bool) -> String
+
+pub fn[P : @property.Testable, T] shrinking((T) -> Iter[T], T, (T) -> P) -> @property.Property
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+pub using @property {type Arrow}
+
+pub using @property {type ArrowAsync}
+
+pub using @property {type ArrowError}
+
+pub using @property {type Discard}
+
+pub using @state {type Expected}
+
+pub using @property {type Property}
+
+pub using @shrink {trait Shrink}
+
+pub using @property {trait Testable}
+
+// Traits
+
