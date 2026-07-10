@@ -120,6 +120,18 @@ pub struct ApiPackageComparison {
 } derive(Eq, Debug)
 
 ///|
+pub struct ReleasePlan {
+  report : ApiReport
+  diagnostics : Array[ApiDiagnostic]
+  version_check : VersionCheck
+  summary : ApiSummary
+  diagnostic_summary : DiagnosticSummary
+  status : String
+  decision : String
+  next_action : String
+} derive(Eq, Debug)
+
+///|
 /// Parse a MoonBit interface file into a normalized public API list.
 pub fn parse_interface(text : String) -> Array[ApiItem] {
   let items : Array[ApiItem] = []
@@ -824,6 +836,126 @@ pub fn check_interface_version_bump(
 }
 
 ///|
+/// Build a release-oriented decision from API, diagnostics, and SemVer data.
+pub fn make_release_plan(
+  report : ApiReport,
+  diagnostics : Array[ApiDiagnostic],
+  current : String,
+  next : String,
+) -> ReleasePlan {
+  let version_check = check_version_bump(report, current, next)
+  let diagnostic_summary = summarize_diagnostics(diagnostics)
+  let status = release_plan_status(diagnostic_summary, version_check)
+  {
+    report,
+    diagnostics,
+    version_check,
+    summary: summarize_report(report),
+    diagnostic_summary,
+    status,
+    decision: release_plan_decision(status, version_check.required),
+    next_action: release_plan_next_action(status, version_check),
+  }
+}
+
+///|
+/// Render a release-oriented Markdown report for maintainers and PR comments.
+pub fn render_markdown_release_plan(plan : ReleasePlan) -> String {
+  let out = StringBuilder()
+  out.write("# MoonGuard Release Plan\n\n")
+  out.write("- Status: **")
+  out.write(escape_markdown_cell(plan.status))
+  out.write("**\n")
+  out.write("- Decision: ")
+  out.write(escape_markdown_cell(plan.decision))
+  out.write("\n")
+  out.write("- Next action: ")
+  out.write(escape_markdown_cell(plan.next_action))
+  out.write("\n")
+  out.write("- Required bump: **")
+  out.write(impact_label(plan.version_check.required))
+  out.write("**\n")
+  out.write("- Version: `")
+  out.write(escape_markdown_cell(plan.version_check.current))
+  out.write("` -> `")
+  out.write(escape_markdown_cell(plan.version_check.next))
+  out.write("`\n")
+  out.write("- Version check: **")
+  if plan.version_check.ok {
+    out.write("pass")
+  } else {
+    out.write("fail")
+  }
+  out.write("**\n")
+  out.write("- API changes: ")
+  out.write(plan.summary.total.to_string())
+  out.write(" (major ")
+  out.write(plan.summary.major.to_string())
+  out.write(", minor ")
+  out.write(plan.summary.minor.to_string())
+  out.write(", patch ")
+  out.write(plan.summary.patch.to_string())
+  out.write(")\n")
+  out.write("- Added/Removed/Changed: ")
+  out.write(plan.summary.added.to_string())
+  out.write("/")
+  out.write(plan.summary.removed.to_string())
+  out.write("/")
+  out.write(plan.summary.changed.to_string())
+  out.write("\n")
+  out.write("- Diagnostics: ")
+  out.write(plan.diagnostic_summary.total.to_string())
+  out.write(" (errors ")
+  out.write(plan.diagnostic_summary.errors.to_string())
+  out.write(", warnings ")
+  out.write(plan.diagnostic_summary.warnings.to_string())
+  out.write(", infos ")
+  out.write(plan.diagnostic_summary.infos.to_string())
+  out.write(")\n\n")
+  out.write("## Maintainer Checklist\n\n")
+  write_release_plan_checklist(out, plan)
+  out.write("\n")
+  write_markdown_diagnostics(out, plan.diagnostics)
+  write_markdown_changes(out, plan.report.changes)
+  out.to_string()
+}
+
+///|
+/// Render a release-oriented JSON report for CI and dashboards.
+pub fn render_json_release_plan(plan : ReleasePlan) -> String {
+  let out = StringBuilder()
+  out.write("{\n")
+  write_json_string_field(out, "status", plan.status, 2)
+  out.write(",\n")
+  write_json_string_field(out, "decision", plan.decision, 2)
+  out.write(",\n")
+  write_json_string_field(out, "next_action", plan.next_action, 2)
+  out.write(",\n")
+  write_json_indent(out, 2)
+  out.write("\"summary\": ")
+  write_json_api_summary_object(out, plan.summary, 2)
+  out.write(",\n")
+  write_json_indent(out, 2)
+  out.write("\"diagnostic_summary\": ")
+  write_json_diagnostic_summary_object(out, plan.diagnostic_summary, 2)
+  out.write(",\n")
+  write_json_indent(out, 2)
+  out.write("\"version_check\": ")
+  write_json_version_check_object(out, plan.version_check, 2)
+  out.write(",\n")
+  write_json_indent(out, 2)
+  out.write("\"report\": ")
+  write_json_report_object(out, plan.report, 2)
+  out.write(",\n")
+  write_json_indent(out, 2)
+  out.write("\"diagnostics\": ")
+  write_json_diagnostics_array(out, plan.diagnostics, 2)
+  out.write("\n")
+  out.write("}\n")
+  out.to_string()
+}
+
+///|
 /// Parse ignore rules used to filter accepted or experimental API changes.
 ///
 /// Supported rule syntax:
@@ -997,6 +1129,73 @@ fn make_version_check(
   reason : String,
 ) -> VersionCheck {
   { ok, required, current, next, reason }
+}
+
+///|
+fn release_plan_status(
+  diagnostic_summary : DiagnosticSummary,
+  version_check : VersionCheck,
+) -> String {
+  if diagnostic_summary.errors > 0 {
+    "blocked"
+  } else if version_check.ok {
+    "ready"
+  } else {
+    "needs-version-bump"
+  }
+}
+
+///|
+fn release_plan_decision(status : String, required : Impact) -> String {
+  if status == "blocked" {
+    "Fix interface snapshot diagnostics before publishing."
+  } else if status == "ready" {
+    "The proposed version satisfies the \{impact_label(required)} API impact."
+  } else {
+    "Increase the proposed version to satisfy the \{impact_label(required)} API impact."
+  }
+}
+
+///|
+fn release_plan_next_action(
+  status : String,
+  version_check : VersionCheck,
+) -> String {
+  if status == "blocked" {
+    "Resolve diagnostic errors, regenerate package interfaces, then rerun MoonGuard."
+  } else if status == "ready" {
+    "Publish or merge after normal project checks pass."
+  } else if version_check.required == Major {
+    "Use a major version bump or accept the breaking API changes explicitly."
+  } else if version_check.required == Minor {
+    "Use a minor or major version bump for the added public API."
+  } else {
+    "Use any greater patch, minor, or major version."
+  }
+}
+
+///|
+fn write_release_plan_checklist(
+  out : StringBuilder,
+  plan : ReleasePlan,
+) -> Unit {
+  if plan.diagnostic_summary.errors > 0 {
+    out.write("- [ ] Fix diagnostic errors in generated interface snapshots.\n")
+  } else {
+    out.write("- [x] Generated interface snapshots are readable.\n")
+  }
+  if plan.version_check.ok {
+    out.write("- [x] Proposed version satisfies MoonGuard's recommendation.\n")
+  } else {
+    out.write("- [ ] Update the proposed version before release.\n")
+  }
+  if plan.summary.major > 0 {
+    out.write("- [ ] Review breaking changes and document migration notes.\n")
+  } else if plan.summary.minor > 0 {
+    out.write("- [ ] Mention added public APIs in release notes.\n")
+  } else {
+    out.write("- [x] No public API release notes are required by MoonGuard.\n")
+  }
 }
 
 ///|
@@ -2387,6 +2586,31 @@ fn write_json_version_check_object(
   write_json_string_field(out, "next", check.next, indent + 2)
   out.write(",\n")
   write_json_string_field(out, "reason", check.reason, indent + 2)
+  out.write("\n")
+  write_json_indent(out, indent)
+  out.write("}")
+}
+
+///|
+fn write_json_api_summary_object(
+  out : StringBuilder,
+  summary : ApiSummary,
+  indent : Int,
+) -> Unit {
+  out.write("{\n")
+  write_json_number_field(out, "total", summary.total, indent + 2)
+  out.write(",\n")
+  write_json_number_field(out, "major", summary.major, indent + 2)
+  out.write(",\n")
+  write_json_number_field(out, "minor", summary.minor, indent + 2)
+  out.write(",\n")
+  write_json_number_field(out, "patch", summary.patch, indent + 2)
+  out.write(",\n")
+  write_json_number_field(out, "added", summary.added, indent + 2)
+  out.write(",\n")
+  write_json_number_field(out, "removed", summary.removed, indent + 2)
+  out.write(",\n")
+  write_json_number_field(out, "changed", summary.changed, indent + 2)
   out.write("\n")
   write_json_indent(out, indent)
   out.write("}")

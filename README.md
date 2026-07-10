@@ -32,6 +32,8 @@ engineering infrastructure for package authors and CI workflows.
   diagnostics, and render snapshot inventories.
 - Read `.mbti` files and directories from the CLI when running on the JS
   backend.
+- Render package release plans that combine API impact, diagnostics, SemVer
+  validation, and maintainer checklist items for release PRs.
 
 ## Installation
 
@@ -112,11 +114,18 @@ Compare package directories and inspect a generated interface inventory:
 ```sh
 moon run --target js cmd/main -- report-dir fixtures/dir-old fixtures/dir-new
 moon run --target js cmd/main -- check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
+moon run --target js cmd/main -- release-plan fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
 moon run --target js cmd/main -- inventory-dir fixtures/dir-new --format json
 moon run --target js cmd/main -- report-dir --config fixtures/moonguard-ci.conf
 moon run --target js cmd/main -- check-dir --config fixtures/moonguard-ci.conf
+moon run --target js cmd/main -- release-plan --config fixtures/moonguard-ci.conf
 moon run --target js cmd/main -- inventory-dir --config fixtures/moonguard-ci.conf
 ```
+
+The release-plan command is intended for application-facing package workflows:
+it prints whether a release is ready, blocked by snapshot diagnostics, or needs
+a larger version bump, then includes checklist items for release notes and
+migration review.
 
 Ignore files filter report changes without changing the parsed API model:
 
@@ -176,6 +185,7 @@ moon run --target js cmd/main -- report-dir fixtures/dir-old fixtures/dir-new
 moon run --target js cmd/main -- report-dir --config fixtures/moonguard-ci.conf
 moon run --target js cmd/main -- check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
 moon run --target js cmd/main -- check-dir --config fixtures/moonguard-ci.conf
+moon run --target js cmd/main -- release-plan --config fixtures/moonguard-ci.conf
 moon run --target js cmd/main -- inventory-dir --config fixtures/moonguard-ci.conf
 node _build/js/debug/build/cmd/main/main.js check fixtures/old.mbti fixtures/new.mbti --current 0.1.0 --next 0.2.0
 node _build/js/debug/build/cmd/main/main.js check --config fixtures/moonguard-ci.conf

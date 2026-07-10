@@ -34,6 +34,8 @@ pub fn filter_report(ApiReport, String) -> ApiReport
 
 pub fn filter_report_with_rules(ApiReport, Array[ApiIgnoreRule]) -> ApiReport
 
+pub fn make_release_plan(ApiReport, Array[ApiDiagnostic], String, String) -> ReleasePlan
+
 pub fn merge_diagnostics(Array[ApiDiagnostic], Array[ApiDiagnostic]) -> Array[ApiDiagnostic]
 
 pub fn parse_ignore_rules(String) -> IgnoreParseResult
@@ -50,6 +52,8 @@ pub fn render_json_package_check_result(ApiReport, Array[ApiDiagnostic], Version
 
 pub fn render_json_package_report(ApiReport, Array[ApiDiagnostic]) -> String
 
+pub fn render_json_release_plan(ReleasePlan) -> String
+
 pub fn render_json_report(ApiReport) -> String
 
 pub fn render_json_snapshot_inventory(ApiSnapshot) -> String
@@ -57,6 +61,8 @@ pub fn render_json_snapshot_inventory(ApiSnapshot) -> String
 pub fn render_markdown_package_check_result(ApiReport, Array[ApiDiagnostic], VersionCheck) -> String
 
 pub fn render_markdown_package_report(ApiReport, Array[ApiDiagnostic]) -> String
+
+pub fn render_markdown_release_plan(ReleasePlan) -> String
 
 pub fn render_markdown_report(ApiReport) -> String
 
@@ -164,6 +170,17 @@ pub(all) enum Impact {
   Patch
   Minor
   Major
+} derive(Eq, @debug.Debug)
+
+pub struct ReleasePlan {
+  report : ApiReport
+  diagnostics : Array[ApiDiagnostic]
+  version_check : VersionCheck
+  summary : ApiSummary
+  diagnostic_summary : DiagnosticSummary
+  status : String
+  decision : String
+  next_action : String
 } derive(Eq, @debug.Debug)
 
 pub struct Version {

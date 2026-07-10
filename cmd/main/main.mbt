@@ -89,6 +89,8 @@ fn run_args_result(args : Array[String]) -> CliResult {
     report_dirs_command(cli_args)
   } else if cli_args[0] == "check-dir" {
     check_dirs_command(cli_args)
+  } else if cli_args[0] == "release-plan" {
+    release_plan_command(cli_args)
   } else if cli_args[0] == "inventory-dir" {
     inventory_dir_command(cli_args)
   } else if cli_args[0] == "check" {
@@ -112,6 +114,7 @@ fn command_start(args : Array[String]) -> Int {
       arg == "report-dir" ||
       arg == "report-text" ||
       arg == "check-dir" ||
+      arg == "release-plan" ||
       arg == "inventory-dir" ||
       arg == "check" ||
       arg == "--help" ||
@@ -257,6 +260,53 @@ fn check_dirs_command(args : ArrayView[String]) -> CliResult {
                     Err(message) => error_result(message)
                     Ok(filtered) =>
                       check_package_result(
+                        filtered,
+                        package_report.diagnostics,
+                        options.current,
+                        options.next,
+                        options.format,
+                      )
+                  }
+              }
+            }
+          }
+      }
+  }
+}
+
+///|
+fn release_plan_command(args : ArrayView[String]) -> CliResult {
+  match
+    parse_optional_path_pair(args, "release-plan requires OLD_DIR and NEW_DIR") {
+    Err(message) => error_result(message)
+    Ok((old_arg, new_arg, option_start)) =>
+      match parse_check_options(args, option_start) {
+        Err(message) => error_result(message)
+        Ok(parsed_options) =>
+          match resolve_check_options(parsed_options) {
+            Err(message) => error_result(message)
+            Ok(options) => {
+              let old_dir = choose_configured_path(
+                old_arg,
+                options.baseline_dir,
+              )
+              let new_dir = choose_configured_path(new_arg, options.target_dir)
+              if old_dir.length() == 0 || new_dir.length() == 0 {
+                return error_result(
+                  "error: release-plan requires OLD_DIR and NEW_DIR",
+                )
+              }
+              match diff_dir_package_report(old_dir, new_dir) {
+                Err(message) => error_result(message)
+                Ok(package_report) =>
+                  match
+                    apply_ignore_file(
+                      package_report.report,
+                      options.ignore_file,
+                    ) {
+                    Err(message) => error_result(message)
+                    Ok(filtered) =>
+                      release_plan_result(
                         filtered,
                         package_report.diagnostics,
                         options.current,
@@ -472,6 +522,29 @@ fn package_result(
     { output, exit_code: 2 }
   } else {
     { output, exit_code: 0 }
+  }
+}
+
+///|
+fn release_plan_result(
+  report : @moonguard.ApiReport,
+  diagnostics : Array[@moonguard.ApiDiagnostic],
+  current : String,
+  next : String,
+  format : String,
+) -> CliResult {
+  let plan = @moonguard.make_release_plan(report, diagnostics, current, next)
+  let output = if format == "json" {
+    @moonguard.render_json_release_plan(plan)
+  } else {
+    @moonguard.render_markdown_release_plan(plan)
+  }
+  if @moonguard.diagnostics_have_errors(diagnostics) {
+    { output, exit_code: 2 }
+  } else if plan.version_check.ok {
+    { output, exit_code: 0 }
+  } else {
+    { output, exit_code: 1 }
   }
 }
 
@@ -1045,12 +1118,14 @@ fn help_text() -> String {
     #|  moon run --target js cmd/main -- inventory-dir dir [--format markdown|json] [--config path]
     #|  moon run --target js cmd/main -- check old.mbti new.mbti --current 0.1.0 --next 0.2.0 [--format markdown|json] [--ignore-file path] [--config path]
     #|  moon run --target js cmd/main -- check-dir old_dir new_dir --current 0.1.0 --next 0.2.0 [--format markdown|json] [--ignore-file path] [--config path]
+    #|  moon run --target js cmd/main -- release-plan old_dir new_dir --current 0.1.0 --next 0.2.0 [--format markdown|json] [--ignore-file path] [--config path]
     #|  moon run cmd/main -- report-text "pub fn old() -> Unit" "pub fn new() -> Unit" [--format markdown|json] [--ignore-file path] [--config path]
     #|  moon run cmd/main -- --version
     #|  moon run cmd/main -- --help
     #|
     #|Compare MoonBit interface snapshots and print compatibility reports.
     #|The check command exits with 1 when the proposed SemVer bump is insufficient.
+    #|The release-plan command renders a package maintainer checklist for release PRs.
     #|Config files can provide format, ignore_file, current, next, baseline, target, baseline_dir, and target_dir.
     #|Ignore files use rules such as `ignore fn debug_tmp`.
   help
