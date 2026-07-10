@@ -106,16 +106,21 @@ observable ecosystem artifacts:
 - Active official and community repositories.
 - Real deprecation/removal/release PRs.
 
-## Next Data Collection Work
+## Completed Validation Follow-up
 
-Recommended follow-up work:
+The first real-world validation slice is now part of the repository:
 
-- Sample 20 real MoonBit repositories from Mooncakes and GitHub.
-- Save only metadata and generated compatibility summaries, not third-party
-  source code.
-- Run MoonGuard against real `pkg.generated.mbti` files to identify parser
-  coverage gaps.
+- 15 repositories are pinned to full commit SHAs.
+- All samples use Apache-2.0 or MIT licenses and include source metadata and
+  SHA-256 hashes.
+- MoonGuard models 6700 API items with zero unknown declarations or snapshot
+  diagnostics.
+- Fourteen modern-format samples are fully modeled; one historical sample
+  exposed 119 unqualified associated `fn`/`impl` lines as a documented parser
+  gap.
+
+Recommended next ecosystem work:
+
 - Open a few small issues or PRs offering MoonGuard CI examples to package
   maintainers.
-- Add a README section showing a GitHub Actions integration for package
-  authors.
+- Extend the corpus when the toolchain introduces new interface syntax.

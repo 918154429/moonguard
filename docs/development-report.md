@@ -36,7 +36,9 @@ Implemented capabilities:
   constructors, trait methods, generic methods, `suberror`, and `pub using`
   type or trait exports.
 - Preserve unrecognized public declarations as `unknown`.
-- Detect added public API as `minor`.
+- Detect ordinary top-level added public API as `minor`.
+- Conservatively detect added struct fields, enum/suberror constructors, and
+  required trait methods as `major`.
 - Detect removed public API as `major`.
 - Detect changed public signatures as `major`.
 - Render Markdown and JSON compatibility reports.
@@ -50,10 +52,14 @@ Implemented capabilities:
 - Build package snapshots from multiple `.mbti` files.
 - Compare package directories with file namespaces so same-named symbols in
   different files do not overwrite each other.
+- Ignore generated, vendored, fixture, coverage, and nested tool directories
+  when a project root is scanned.
 - Report directory diagnostics such as empty input, no `.mbti` files, duplicate
   symbols, and file-read failures.
 - Render package-level comparison reports, package version-check reports, and
   snapshot inventories in Markdown or JSON.
+- Render release plans with a status, SemVer decision, diagnostics, and a
+  maintainer checklist.
 - Provide file-based CLI comparison on the JS backend:
 
 ```sh
@@ -76,6 +82,7 @@ moon run --target js cmd/main -- report-dir fixtures/dir-old fixtures/dir-new
 moon run --target js cmd/main -- report-dir --config fixtures/moonguard-ci.conf
 moon run --target js cmd/main -- check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
 moon run --target js cmd/main -- check-dir --config fixtures/moonguard-ci.conf
+moon run --target js cmd/main -- release-plan --config fixtures/moonguard-ci.conf
 moon run --target js cmd/main -- inventory-dir --config fixtures/moonguard-ci.conf
 ```
 
@@ -117,11 +124,14 @@ Compatibility and version rules are conservative:
 
 - Removing public API is breaking.
 - Changing a public signature is breaking.
-- Adding public API is minor-compatible.
+- Adding ordinary top-level public API is minor-compatible.
+- Adding a field, enum/suberror constructor, or required trait method is
+  conservatively breaking because it can invalidate construction, exhaustive
+  matching, or existing implementations.
 - No public API model change is patch.
 - A `major` recommendation requires a major version increase.
 - A `minor` recommendation accepts a minor or major version increase.
-- A `patch` recommendation accepts any non-decreasing version.
+- A `patch` recommendation accepts any greater version.
 
 Unrecognized `pub` lines are not discarded. They are retained as `unknown`
 items so that public surface changes remain visible until the parser gains
@@ -153,6 +163,8 @@ Current tests cover:
 - CLI argument handling;
 - JS-target file and directory CLI smoke tests;
 - CLI check output and exit-code intent;
+- release-plan ready, insufficient-bump, and diagnostic-blocked states;
+- single-line/multi-line container normalization;
 - unknown public declaration retention.
 
 Validation commands:
@@ -169,7 +181,9 @@ moon run --target js cmd/main -- report-dir fixtures/dir-old fixtures/dir-new
 moon run --target js cmd/main -- report-dir --config fixtures/moonguard-ci.conf
 moon run --target js cmd/main -- check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
 moon run --target js cmd/main -- check-dir --config fixtures/moonguard-ci.conf
+moon run --target js cmd/main -- release-plan --config fixtures/moonguard-ci.conf
 moon run --target js cmd/main -- inventory-dir --config fixtures/moonguard-ci.conf
+moon run --target js cmd/main -- inventory-dir fixtures/real --format json
 node _build/js/debug/build/cmd/main/main.js check fixtures/old.mbti fixtures/new.mbti --current 0.1.0 --next 0.2.0
 node _build/js/debug/build/cmd/main/main.js check --config fixtures/moonguard-ci.conf
 node _build/js/debug/build/cmd/main/main.js check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
@@ -179,19 +193,30 @@ node _build/js/debug/build/cmd/main/main.js check-dir --config fixtures/moonguar
 Current local result:
 
 ```text
-Total tests: 131, passed: 131, failed: 0.
+Total tests: 139, passed: 139, failed: 0.
+Instrumented coverage: 1900/2183 lines (87.0%).
 ```
+
+The real-world corpus contains 15 pinned public interface snapshots from 15
+repositories. It produces 6700 modeled API items, zero `unknown` items, and zero
+snapshot diagnostics. Fourteen modern-format samples are fully modeled. One
+historical `python.mbt` snapshot contains 119 associated `fn`/`impl` lines
+without a visibility prefix and is explicitly marked partial rather than being
+presented as fully covered.
 
 ## Known Limits
 
 - File-based CLI input currently requires the JS backend and Node runtime.
 - Parser coverage is still line-oriented and intentionally focused on generated
   `.mbti` shapes rather than full MoonBit source syntax.
+- Historical interface files can contain unqualified associated methods or
+  `impl` lines. The corpus analyzer reports them, but the compatibility model
+  does not yet include them.
 - `moon run --target js` does not reliably propagate a nonzero JavaScript
   process exit status. The generated JS file does return the intended status
   when run directly with Node, so CI uses direct Node execution for strict
   failing `check` assertions.
-- The tracked `.mbt` source total is currently 6525 lines excluding `_build`.
+- The tracked `.mbt` source total is currently 7098 lines excluding `_build`.
   Future implementation slices should keep the project comfortably above the
   5000-line competition threshold.
 
@@ -202,13 +227,12 @@ Near-term work:
 - Add native file input support when a stable MoonBit file IO path is available.
 - Split implementation into parser, model, diff, semver, report, and CLI
   modules.
-- Add baseline-oriented release workflows for comparing a package against the
-  last published interface snapshot.
 - Add baseline-oriented release commands that can save or consume published
   interface snapshots.
-- Continue mining real generated `.mbti` files for parser coverage gaps.
-- Add rule documentation with concrete breaking/minor examples.
-- Add GitHub Actions usage documentation.
+- Add a legacy interface mode for unqualified associated methods and `impl`
+  declarations.
+- Continue expanding the pinned real-world corpus when new MoonBit interface
+  shapes appear.
 
 ## AI Collaboration Notes
 

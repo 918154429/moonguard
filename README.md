@@ -18,7 +18,9 @@ engineering infrastructure for package authors and CI workflows.
   constructors, trait methods, generic methods, `suberror`, and `pub using`
   type or trait exports.
 - Classify public API changes:
-  - added public API -> minor
+  - added top-level public API -> minor
+  - added struct fields, enum/suberror constructors, or required trait methods
+    -> major (conservative)
   - removed public API -> major
   - changed signature -> major
   - unchanged public API -> patch
@@ -29,7 +31,8 @@ engineering infrastructure for package authors and CI workflows.
 - Filter accepted or experimental changes with simple ignore rules.
 - Share repeated CLI defaults through simple config files.
 - Compare package directories, detect duplicate symbols and directory
-  diagnostics, and render snapshot inventories.
+  diagnostics, ignore generated/vendor/tool directories, and render snapshot
+  inventories.
 - Read `.mbti` files and directories from the CLI when running on the JS
   backend.
 - Render package release plans that combine API impact, diagnostics, SemVer
@@ -155,13 +158,23 @@ For quick demos without files, use `report-text`:
 moon run cmd/main -- report-text "pub fn render(String) -> String" "pub fn render(String, Options) -> String" --format json
 ```
 
+## GitHub Actions
+
+MoonGuard can compare a committed release baseline with interfaces generated in
+a pull request, fail on an insufficient version bump, and upload a JSON release
+plan. See [docs/github-actions.md](docs/github-actions.md) for a complete
+downstream workflow pinned to the `v0.1.0` release.
+
 ## Compatibility Rules
 
 MoonGuard starts with conservative rules:
 
 - Removing a public declaration is a breaking change.
 - Changing a public signature is a breaking change.
-- Adding a public declaration is a minor-compatible change.
+- Adding an ordinary top-level public declaration is minor-compatible.
+- Adding a struct field, enum/suberror constructor, or required trait method is
+  conservatively breaking because it can invalidate construction, exhaustive
+  matching, or existing trait implementations.
 - Reordering declarations, changing comments, or changing whitespace does not
   affect the public API model.
 
@@ -169,6 +182,26 @@ The parser intentionally covers high-frequency `.mbti` declarations first,
 including common nested members from generated interface files. Any
 unrecognized `pub` line is retained as `unknown` so that public surface changes
 remain visible instead of being silently ignored.
+
+The complete rule table and rationale are in
+[docs/api-compat-rules.md](docs/api-compat-rules.md).
+
+## Real-World Validation
+
+The repository includes 15 pinned public `pkg.generated.mbti` samples from
+official and community MoonBit projects. MoonGuard currently extracts 6700 API
+items from this corpus with zero unknown declarations and zero snapshot
+diagnostics. Fourteen modern-format samples are fully modeled; one historical
+sample is marked partial because 119 legacy associated `fn`/`impl` lines do not
+carry a public visibility prefix and are intentionally reported as a known
+coverage gap.
+
+- Sources, revisions, and licenses:
+  [fixtures/real/SOURCES.md](fixtures/real/SOURCES.md)
+- Per-sample compatibility matrix:
+  [docs/real-world-compatibility.md](docs/real-world-compatibility.md)
+- Reproducible demo and validation record:
+  [docs/demo-report.md](docs/demo-report.md)
 
 ## Development
 
@@ -197,7 +230,7 @@ Generated `pkg.generated.mbti` files are kept in the repository so interface
 changes are reviewable after `moon info`.
 
 Competition source-line tracking counts repository `.mbt` source files and
-excludes generated `_build` output. The current tracked source total is 6525
+excludes generated `_build` output. The current tracked source total is 7098
 lines, so future code changes should keep the project above the 5000-line
 threshold.
 

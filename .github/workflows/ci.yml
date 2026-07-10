@@ -56,6 +56,11 @@ jobs:
           moon run --target js cmd/main -- release-plan fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0 --format json
           moon run --target js cmd/main -- release-plan --config fixtures/moonguard-ci.conf
 
+      - name: Real-world interface corpus
+        shell: pwsh
+        run: |
+          ./scripts/analyze-real-fixtures.ps1 -Json | Out-Null
+
       - name: CLI check exit-code smoke tests
         run: |
           # moon run --target js can hide nonzero JS exits, so strict exit-code

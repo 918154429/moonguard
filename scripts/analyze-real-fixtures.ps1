@@ -4,8 +4,11 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$fixtureRoot = Join-Path $repoRoot 'fixtures\real'
-$cli = Join-Path $repoRoot '_build\js\debug\build\cmd\main\main.js'
+$fixtureRoot = Join-Path (Join-Path $repoRoot 'fixtures') 'real'
+$cli = Join-Path $repoRoot '_build'
+foreach ($part in @('js', 'debug', 'build', 'cmd', 'main', 'main.js')) {
+  $cli = Join-Path $cli $part
+}
 
 if (-not (Test-Path -LiteralPath $cli)) {
   throw "MoonGuard JS CLI not found at $cli. Build it with: moon run --target js cmd/main -- --help"

@@ -42,18 +42,20 @@ new .mbti text/files -> parse/snapshot -> API model /
 
 Current impact rules:
 
-- Added public API -> `minor`
+- Added ordinary top-level public API -> `minor`
+- Added struct field, enum/suberror constructor, or required trait method ->
+  `major` (conservative)
 - Removed public API -> `major`
 - Changed public signature -> `major`
 - No public API model change -> `patch`
-- Nested public surface such as struct fields, enum constructors, trait
-  methods, and suberror constructors uses the same rules.
+- Inline and multi-line struct, enum, trait, and suberror layouts normalize to
+  the same API model.
 
 Version-bump checks:
 
 - `major` recommendation requires a major version increase.
 - `minor` recommendation accepts a minor or major version increase.
-- `patch` recommendation accepts any non-decreasing version.
+- `patch` recommendation accepts any greater version.
 
 ## Implemented Capabilities
 
@@ -67,6 +69,8 @@ Library API in `moonguard.mbt` includes:
   `render_markdown_package_check_result`,
   `render_json_package_check_result`,
   `render_markdown_snapshot_inventory`, `render_json_snapshot_inventory`.
+- Release workflow: `make_release_plan`, `render_markdown_release_plan`,
+  `render_json_release_plan`.
 - SemVer: `parse_version`, `compare_versions`, `check_version_bump`,
   `check_interface_version_bump`, `render_version_check_markdown`,
   `render_json_check_result`.
@@ -83,6 +87,7 @@ Public models include:
 - `ApiIgnoreRule`, `IgnoreParseResult`
 - `ApiFile`, `ApiDiagnostic`, `ApiSnapshot`, `ApiPackageComparison`
 - `ApiSummary`, `DiagnosticSummary`, `ApiKindCount`
+- `ReleasePlan`
 
 CLI in `cmd/main` supports:
 
@@ -92,6 +97,7 @@ moon run --target js cmd/main -- report-dir old_dir new_dir [--format markdown|j
 moon run --target js cmd/main -- inventory-dir dir [--format markdown|json]
 moon run --target js cmd/main -- check old.mbti new.mbti --current 0.1.0 --next 0.2.0 [--format markdown|json] [--ignore-file path]
 moon run --target js cmd/main -- check-dir old_dir new_dir --current 0.1.0 --next 0.2.0 [--format markdown|json] [--ignore-file path]
+moon run --target js cmd/main -- release-plan old_dir new_dir --current 0.1.0 --next 0.2.0 [--format markdown|json] [--ignore-file path]
 moon run cmd/main -- report-text "pub fn old() -> Unit" "pub fn new() -> Unit" [--format markdown|json] [--ignore-file path]
 ```
 
@@ -141,11 +147,13 @@ Fixtures:
 - `fixtures/dir-new`
 - `fixtures/dir-duplicate`
 - `fixtures/dir-no-mbti`
+- `fixtures/real` (15 pinned public interface snapshots with provenance)
 
 Current local test result:
 
 ```text
-Total tests: 131, passed: 131, failed: 0.
+Total tests: 139, passed: 139, failed: 0.
+Instrumented coverage: 1900/2183 lines (87.0%).
 ```
 
 GitHub Actions should cover:
@@ -155,7 +163,8 @@ GitHub Actions should cover:
 - Markdown and JSON CLI report smoke tests
 - config-driven CLI smoke tests
 - directory report, directory check, and inventory smoke tests
-- direct Node `check` and `check-dir` success and failure exit-code assertions
+- release-plan Markdown/JSON/config smoke tests
+- direct Node `check`, `check-dir`, and `release-plan` exit-code assertions
 - `moon fmt` plus `git diff --exit-code`
 
 ## Verification Commands
@@ -173,7 +182,9 @@ Run from the repository root:
 & 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' run --target js cmd/main -- report-dir --config fixtures/moonguard-ci.conf
 & 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' run --target js cmd/main -- check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
 & 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' run --target js cmd/main -- check-dir --config fixtures/moonguard-ci.conf
+& 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' run --target js cmd/main -- release-plan --config fixtures/moonguard-ci.conf
 & 'E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe' run --target js cmd/main -- inventory-dir --config fixtures/moonguard-ci.conf
+& '.\scripts\analyze-real-fixtures.ps1'
 node _build\js\debug\build\cmd\main\main.js check fixtures/old.mbti fixtures/new.mbti --current 0.1.0 --next 0.2.0
 node _build\js\debug\build\cmd\main\main.js check --config fixtures/moonguard-ci.conf
 node _build\js\debug\build\cmd\main\main.js check-dir fixtures/dir-old fixtures/dir-new --current 0.1.0 --next 1.0.0
@@ -191,10 +202,12 @@ gh run list --repo 918154429/moonguard --limit 5
 - Parser is line-oriented and intentionally conservative.
 - It models common generated `.mbti` nested members, but it is not a full
   MoonBit source parser.
+- One pinned historical sample contains 119 unqualified associated `fn`/`impl`
+  lines that are reported by the corpus analyzer but not yet modeled.
 - Native file and directory input is not implemented; CLI file/directory mode
   is JS target only.
 - Source-line competition tracking counts repository `.mbt` files and excludes
-  generated `_build` output. Current tracked source total is 6525 lines, so
+  generated `_build` output. Current tracked source total is 7098 lines, so
   future implementation slices should keep a buffer above the 5000-line
   threshold.
 
@@ -202,9 +215,8 @@ gh run list --repo 918154429/moonguard --limit 5
 
 Strong next options:
 
-- Add a baseline workflow for comparing a package against a saved release
-  interface snapshot.
-- Mine more real toolchain/core `.mbti` files for parser edge cases.
+- Add a baseline save/update command around the documented baseline workflow.
+- Add legacy parsing for unqualified associated methods and implementations.
 - Split the large implementation into parser, model, diff, semver, report, and
   CLI-focused modules once the public API shape is stable.
 
