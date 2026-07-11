@@ -113,11 +113,11 @@ The first real-world validation slice is now part of the repository:
 - 15 repositories are pinned to full commit SHAs.
 - All samples use Apache-2.0 or MIT licenses and include source metadata and
   SHA-256 hashes.
-- MoonGuard models 6700 API items with zero unknown declarations or snapshot
+- MoonGuard models 6819 API items with zero unknown declarations or snapshot
   diagnostics.
-- Fourteen modern-format samples are fully modeled; one historical sample
-  exposed 119 unqualified associated `fn`/`impl` lines as a documented parser
-  gap.
+- All 15 samples are fully modeled. The historical sample's 119 unqualified
+  associated `fn`/`impl` lines are handled by generator-header-gated legacy
+  inference.
 
 Recommended next ecosystem work:
 

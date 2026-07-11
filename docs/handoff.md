@@ -259,9 +259,8 @@ gh run list --repo 918154429/moonguard --limit 5
 - Native file and directory input is not implemented; CLI file/directory mode
   is JS target only.
 - Source-line competition tracking counts repository `.mbt` files and excludes
-  generated `_build` output. Current tracked source total is 7098 lines, so
-  future implementation slices should keep a buffer above the 5000-line
-  threshold.
+  generated `_build` output. Current tracked source total is 8502 lines,
+  including 5184 non-test lines, above the confirmed 4000-line threshold.
 
 ## Recommended Next Slices
 

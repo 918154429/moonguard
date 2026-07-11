@@ -232,8 +232,8 @@ visibility prefix through generator-header-gated legacy inference.
   when run directly with Node, so CI uses direct Node execution for strict
   failing `check` assertions.
 - The tracked `.mbt` source total is currently 8502 lines excluding `_build`.
-  Future implementation slices should keep the project comfortably above the
-  5000-line competition threshold.
+  Of these, 5184 are non-test lines, above the confirmed 4000-line competition
+  threshold.
 
 ## Roadmap
 

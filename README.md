@@ -8,6 +8,13 @@ minor, or major.
 The project is being built for the MoonBit open-source ecosystem competition as
 engineering infrastructure for package authors and CI workflows.
 
+## Review Materials
+
+The competition submission, validation evidence, design report, compatibility
+rules, and package-release checklist are indexed in
+[docs/README.md](docs/README.md). This index is the recommended starting point
+for reviewers.
+
 ## Current Features
 
 - Parse public declarations from `.mbti`-style interface text.
@@ -281,8 +288,8 @@ changes are reviewable after `moon info`.
 
 Competition source-line tracking counts repository `.mbt` source files and
 excludes generated `_build` output. The current tracked source total is 8502
-lines, so future code changes should keep the project above the 5000-line
-threshold.
+lines, including 5184 non-test lines. The confirmed competition threshold is
+4000 lines.
 
 See [docs/competition-plan.md](docs/competition-plan.md) for the competition
 plan.
