@@ -1,0 +1,148 @@
+{
+  "report": {
+    "recommendation": "minor",
+    "change_count": 16,
+    "summary": {
+      "major": 0,
+      "minor": 16,
+      "patch": 0
+    },
+    "changes": [
+      {
+        "kind": "added",
+        "impact": "minor",
+        "item_kind": "fn",
+        "name": "evaluate_policy",
+        "old_signature": null,
+        "new_signature": "evaluate_policy(ApiReport, Array[ApiPolicyRule], String) -> ApiPolicyEvaluation"
+      },
+      {
+        "kind": "added",
+        "impact": "minor",
+        "item_kind": "fn",
+        "name": "evaluate_policy_text",
+        "old_signature": null,
+        "new_signature": "evaluate_policy_text(ApiReport, String, String) -> ApiPolicyEvaluation"
+      },
+      {
+        "kind": "added",
+        "impact": "minor",
+        "item_kind": "fn",
+        "name": "make_policy_release_plan",
+        "old_signature": null,
+        "new_signature": "make_policy_release_plan(ApiPolicyEvaluation, Array[ApiDiagnostic], String, String) -> PolicyReleasePlan"
+      },
+      {
+        "kind": "added",
+        "impact": "minor",
+        "item_kind": "fn",
+        "name": "parse_policy_rules",
+        "old_signature": null,
+        "new_signature": "parse_policy_rules(String) -> PolicyParseResult"
+      },
+      {
+        "kind": "added",
+        "impact": "minor",
+        "item_kind": "fn",
+        "name": "policy_diagnostics_have_errors",
+        "old_signature": null,
+        "new_signature": "policy_diagnostics_have_errors(Array[ApiPolicyDiagnostic]) -> Bool"
+      },
+      {
+        "kind": "added",
+        "impact": "minor",
+        "item_kind": "fn",
+        "name": "render_json_policy_evaluation",
+        "old_signature": null,
+        "new_signature": "render_json_policy_evaluation(ApiPolicyEvaluation) -> String"
+      },
+      {
+        "kind": "added",
+        "impact": "minor",
+        "item_kind": "fn",
+        "name": "render_json_policy_release_plan",
+        "old_signature": null,
+        "new_signature": "render_json_policy_release_plan(PolicyReleasePlan) -> String"
+      },
+      {
+        "kind": "added",
+        "impact": "minor",
+        "item_kind": "fn",
+        "name": "render_markdown_policy_evaluation",
+        "old_signature": null,
+        "new_signature": "render_markdown_policy_evaluation(ApiPolicyEvaluation) -> String"
+      },
+      {
+        "kind": "added",
+        "impact": "minor",
+        "item_kind": "fn",
+        "name": "render_markdown_policy_release_plan",
+        "old_signature": null,
+        "new_signature": "render_markdown_policy_release_plan(PolicyReleasePlan) -> String"
+      },
+      {
+        "kind": "added",
+        "impact": "minor",
+        "item_kind": "struct",
+        "name": "AcceptedApiChange",
+        "old_signature": null,
+        "new_signature": "AcceptedApiChange"
+      },
+      {
+        "kind": "added",
+        "impact": "minor",
+        "item_kind": "struct",
+        "name": "ApiPolicyDiagnostic",
+        "old_signature": null,
+        "new_signature": "ApiPolicyDiagnostic"
+      },
+      {
+        "kind": "added",
+        "impact": "minor",
+        "item_kind": "struct",
+        "name": "ApiPolicyEvaluation",
+        "old_signature": null,
+        "new_signature": "ApiPolicyEvaluation"
+      },
+      {
+        "kind": "added",
+        "impact": "minor",
+        "item_kind": "struct",
+        "name": "ApiPolicyRule",
+        "old_signature": null,
+        "new_signature": "ApiPolicyRule"
+      },
+      {
+        "kind": "added",
+        "impact": "minor",
+        "item_kind": "struct",
+        "name": "PolicyParseResult",
+        "old_signature": null,
+        "new_signature": "PolicyParseResult"
+      },
+      {
+        "kind": "added",
+        "impact": "minor",
+        "item_kind": "struct",
+        "name": "PolicyReleasePlan",
+        "old_signature": null,
+        "new_signature": "PolicyReleasePlan"
+      },
+      {
+        "kind": "added",
+        "impact": "minor",
+        "item_kind": "struct",
+        "name": "PolicySummary",
+        "old_signature": null,
+        "new_signature": "PolicySummary"
+      }
+    ]
+  },
+  "version_check": {
+    "ok": true,
+    "required": "minor",
+    "current": "0.1.0",
+    "next": "0.2.0",
+    "reason": "next version satisfies the minor recommendation"
+  }
+}

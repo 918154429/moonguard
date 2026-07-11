@@ -1,0 +1,27 @@
+{
+  "recommendation": "minor",
+  "change_count": 2,
+  "summary": {
+    "major": 0,
+    "minor": 2,
+    "patch": 0
+  },
+  "changes": [
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "ServerConnection::write",
+      "old_signature": null,
+      "new_signature": "async fn ServerConnection::write(Self, &@io.Data) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "ServerConnection::write_string",
+      "old_signature": null,
+      "new_signature": "async fn ServerConnection::write_string(Self, String) -> Unit"
+    }
+  ]
+}

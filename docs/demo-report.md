@@ -7,10 +7,10 @@ This report records the reproducible competition demo state validated on
 
 | Check | Result |
 | --- | ---: |
-| MoonBit tests | 162 passed, 0 failed |
-| MoonBit JS-target tests | 163 passed, 0 failed |
-| Instrumented coverage | 1900 / 2183 lines (87.0%) |
-| Core library coverage | 1499 / 1654 lines (90.6%) |
+| MoonBit tests | 164 passed, 0 failed |
+| MoonBit JS-target tests | 165 passed, 0 failed |
+| Instrumented coverage | 2383 / 2808 lines (84.9%) |
+| Core library coverage | 1940 / 2125 lines (91.3%) |
 | Real `.mbti` samples | 15 |
 | Parsed real API items | 6819 |
 | Unknown real declarations | 0 |
@@ -134,6 +134,19 @@ Actual nested changes remain visible: changing the field type, adding a field,
 adding an enum constructor, or adding a required trait method is conservatively
 classified as `major`.
 
+## Real API Evolution Evidence
+
+MoonGuard now checks its own `v0.1.0` interface against the current `v0.2.0`
+candidate and checks three pinned evolutions from `moonbitlang/async`,
+`moonbitlang/quickcheck`, and `oboard/mocket`. The results cover additive minor
+changes, removed API, and expansion of an existing public enum.
+
+The first self-check exposed and led to a fix for redundant major reports on
+members of an entirely new container. The corrected self-report contains 16
+minor additions and passes the `0.1.0 -> 0.2.0` version check. Full reports,
+source SHAs, hashes, and the regeneration command are in
+[docs/evidence/README.md](evidence/README.md).
+
 ## Reproduction Commands
 
 ```sh
@@ -145,6 +158,7 @@ moon test --target js
 moon coverage analyze
 moon coverage report -- -f summary
 moon run --target js cmd/main -- inventory-dir fixtures/real --format json
+powershell -ExecutionPolicy Bypass -File scripts/generate-evolution-evidence.ps1
 ```
 
 GitHub Actions repeats format, check, test, CLI smoke, directory hygiene,

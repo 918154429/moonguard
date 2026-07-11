@@ -1883,6 +1883,55 @@ test "added derive remains a minor api change" {
 }
 
 ///|
+test "members of a newly added container do not become breaking changes" {
+  let report = @moonguard.diff_interfaces(
+    "",
+    (
+      #|pub struct Options {
+      #|  mode : String
+      #|}
+      #|pub enum Level {
+      #|  Basic
+      #|  Advanced(Int)
+      #|}
+      #|pub(open) trait Render {
+      #|  fn render(Self, Options) -> String
+      #|}
+    ),
+  )
+  assert_true(report.recommendation == @moonguard.Minor)
+  inspect(report.changes.length(), content="3")
+  inspect(report.changes[0].item_kind, content="enum")
+  inspect(report.changes[0].name, content="Level")
+  inspect(report.changes[1].item_kind, content="struct")
+  inspect(report.changes[1].name, content="Options")
+  inspect(report.changes[2].item_kind, content="trait")
+  inspect(report.changes[2].name, content="Render")
+}
+
+///|
+test "members of a removed container do not duplicate its breaking change" {
+  let report = @moonguard.diff_interfaces(
+    (
+      #|pub struct Options {
+      #|  mode : String
+      #|}
+      #|pub enum Level {
+      #|  Basic
+      #|  Advanced(Int)
+      #|}
+    ),
+    "",
+  )
+  assert_true(report.recommendation == @moonguard.Major)
+  inspect(report.changes.length(), content="2")
+  inspect(report.changes[0].item_kind, content="enum")
+  inspect(report.changes[0].name, content="Level")
+  inspect(report.changes[1].item_kind, content="struct")
+  inspect(report.changes[1].name, content="Options")
+}
+
+///|
 test "nested api changes feed existing semver rules" {
   let report = @moonguard.diff_interfaces(
     (

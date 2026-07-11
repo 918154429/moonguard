@@ -249,6 +249,8 @@ by the `moon info` generator header and package declaration.
   [docs/real-world-compatibility.md](docs/real-world-compatibility.md)
 - Reproducible demo and validation record:
   [docs/demo-report.md](docs/demo-report.md)
+- Self-hosted and external API evolution reports:
+  [docs/evidence/README.md](docs/evidence/README.md)
 
 ## Development
 
@@ -258,7 +260,7 @@ The implementation is split by responsibility: `api_model.mbt`, `parser.mbt`,
 into argument parsing, configuration, commands, output, snapshot I/O, and
 backend-specific file I/O under `cmd/main`.
 
-Current validation result: 162/162 default-target tests and 163/163 JS-target
+Current validation result: 164/164 default-target tests and 165/165 JS-target
 tests pass.
 
 Common checks:
@@ -287,8 +289,8 @@ Generated `pkg.generated.mbti` files are kept in the repository so interface
 changes are reviewable after `moon info`.
 
 Competition source-line tracking counts repository `.mbt` source files and
-excludes generated `_build` output. The current tracked source total is 8502
-lines, including 5184 non-test lines. The confirmed competition threshold is
+excludes generated `_build` output. The current tracked source total is 8580
+lines, including 5215 non-test lines. The confirmed competition threshold is
 4000 lines.
 
 See [docs/competition-plan.md](docs/competition-plan.md) for the competition

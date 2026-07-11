@@ -78,14 +78,16 @@ pub fn diff_items(
               new_signature: Some("\{new_item.kind} \{new_item.signature}"),
             })
           None =>
-            changes.push({
-              kind: Removed,
-              impact: Major,
-              item_kind: old_item.kind,
-              name: old_item.name,
-              old_signature: Some(old_item.signature),
-              new_signature: None,
-            })
+            if should_report_nested_change(new_items, old_item) {
+              changes.push({
+                kind: Removed,
+                impact: Major,
+                item_kind: old_item.kind,
+                name: old_item.name,
+                old_signature: Some(old_item.signature),
+                new_signature: None,
+              })
+            }
         }
     }
   }
@@ -96,14 +98,16 @@ pub fn diff_items(
         match find_kind_changed_item(old_items, new_item) {
           Some(_) => ()
           None =>
-            changes.push({
-              kind: Added,
-              impact: added_impact(new_item.kind),
-              item_kind: new_item.kind,
-              name: new_item.name,
-              old_signature: None,
-              new_signature: Some(new_item.signature),
-            })
+            if should_report_nested_change(old_items, new_item) {
+              changes.push({
+                kind: Added,
+                impact: added_impact(new_item.kind),
+                item_kind: new_item.kind,
+                name: new_item.name,
+                old_signature: None,
+                new_signature: Some(new_item.signature),
+              })
+            }
         }
     }
   }
@@ -214,6 +218,36 @@ fn added_impact(kind : String) -> Impact {
   } else {
     Minor
   }
+}
+
+///|
+fn should_report_nested_change(
+  opposite_items : Array[ApiItem],
+  item : ApiItem,
+) -> Bool {
+  if !is_nested_kind(item.kind) {
+    return true
+  }
+  for candidate in opposite_items {
+    if is_container_kind(candidate.kind) &&
+      item.name.has_prefix("\{candidate.name}.") {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn is_nested_kind(kind : String) -> Bool {
+  kind == "field" ||
+  kind == "constructor" ||
+  kind == "trait-method" ||
+  kind == "derive"
+}
+
+///|
+fn is_container_kind(kind : String) -> Bool {
+  kind == "struct" || kind == "enum" || kind == "trait" || kind == "suberror"
 }
 
 ///|

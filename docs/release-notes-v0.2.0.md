@@ -19,12 +19,16 @@ API compatibility and SemVer guard.
 
 ## Validation
 
-- 162 default-target tests and 163 JS-target tests pass.
-- Instrumented coverage is 1900/2183 lines (87.0%).
+- 164 default-target tests and 165 JS-target tests pass.
+- Instrumented coverage is 2383/2808 lines (84.9%); core library coverage is
+  1940/2125 lines (91.3%).
 - 15 pinned real-world interface snapshots produce 6819 modeled API items.
 - All 15 samples are fully modeled with zero unknown items and zero snapshot
   diagnostics.
 - `moon package --list` succeeds and produces a publication archive.
+- Self-hosted `v0.1.0 -> v0.2.0` analysis recommends minor and passes the
+  proposed version check; three pinned external evolution reports cover minor
+  additions and major removals/container expansion.
 
 ## Known Limitations
 

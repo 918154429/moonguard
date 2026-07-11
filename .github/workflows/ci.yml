@@ -61,6 +61,12 @@ jobs:
         run: |
           ./scripts/analyze-real-fixtures.ps1 -Json | Out-Null
 
+      - name: Reproduce API evolution evidence
+        shell: pwsh
+        run: |
+          ./scripts/generate-evolution-evidence.ps1 -Offline
+          git diff --exit-code -- docs/evidence/generated fixtures/evolution/moonguard/v0.1.0.mbti
+
       - name: CLI check exit-code smoke tests
         run: |
           # moon run --target js can hide nonzero JS exits, so strict exit-code

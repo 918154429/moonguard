@@ -208,9 +208,10 @@ node _build/js/debug/build/cmd/main/main.js check-dir --config fixtures/moonguar
 Current local result:
 
 ```text
-Total tests: 162, passed: 162, failed: 0.
-JS target tests: 163, passed: 163, failed: 0.
-Instrumented coverage: 1900/2183 lines (87.0%).
+Total tests: 164, passed: 164, failed: 0.
+JS target tests: 165, passed: 165, failed: 0.
+Instrumented coverage: 2383/2808 lines (84.9%).
+Core library coverage: 1940/2125 lines (91.3%).
 ```
 
 The real-world corpus contains 15 pinned public interface snapshots from 15
@@ -218,6 +219,13 @@ repositories. It produces 6819 modeled API items, zero `unknown` items, and zero
 snapshot diagnostics. All samples are fully modeled. The historical
 `python.mbt` snapshot contributes 119 associated `fn`/`impl` lines without a
 visibility prefix through generator-header-gated legacy inference.
+
+The version-evolution evidence adds one self-hosted comparison and three pinned
+external comparisons. The first self-comparison exposed a false major result
+for members of an entirely new container. The diff engine now suppresses those
+redundant nested changes while preserving major results for members added to an
+existing container. The corrected `v0.1.0 -> v0.2.0` report recommends minor
+and passes the proposed version check. See `docs/evidence/README.md`.
 
 ## Known Limits
 
@@ -231,8 +239,8 @@ visibility prefix through generator-header-gated legacy inference.
   process exit status. The generated JS file does return the intended status
   when run directly with Node, so CI uses direct Node execution for strict
   failing `check` assertions.
-- The tracked `.mbt` source total is currently 8502 lines excluding `_build`.
-  Of these, 5184 are non-test lines, above the confirmed 4000-line competition
+- The tracked `.mbt` source total is currently 8580 lines excluding `_build`.
+  Of these, 5215 are non-test lines, above the confirmed 4000-line competition
   threshold.
 
 ## Roadmap

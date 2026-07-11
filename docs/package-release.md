@@ -8,7 +8,7 @@
 - 模块名：`ccfoss/moonguard`。
 - 模块版本：`0.1.0`。
 - `moon package --list` 成功并生成发布包。
-- 当前发布包：`ccfoss-moonguard-0.1.0.zip`，约 160 KB；切换到 `0.2.0` 后需重新生成。
+- 当前打包检查已通过；加入演化证据并切换到 `0.2.0` 后需重新生成最终发布包。
 - 本机 `moon whoami` 状态为未登录，因此 `moon publish --dry-run` 尚不能完成。
 - `v0.1.0` 是 GitHub 与 GitLink 上已经存在的历史标签，不能重写。
 - 当前公开接口相对 `v0.1.0` 新增 policy 相关类型和函数，MoonGuard 自身的规则应判定为

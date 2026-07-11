@@ -200,9 +200,10 @@ Fixtures:
 Current local test result:
 
 ```text
-Default target: 162 tests, passed: 162, failed: 0.
-JS target: 163 tests, passed: 163, failed: 0.
-Instrumented coverage: 1900/2183 lines (87.0%).
+Default target: 164 tests, passed: 164, failed: 0.
+JS target: 165 tests, passed: 165, failed: 0.
+Instrumented coverage: 2383/2808 lines (84.9%).
+Core library coverage: 1940/2125 lines (91.3%).
 ```
 
 GitHub Actions should cover:
@@ -259,8 +260,8 @@ gh run list --repo 918154429/moonguard --limit 5
 - Native file and directory input is not implemented; CLI file/directory mode
   is JS target only.
 - Source-line competition tracking counts repository `.mbt` files and excludes
-  generated `_build` output. Current tracked source total is 8502 lines,
-  including 5184 non-test lines, above the confirmed 4000-line threshold.
+  generated `_build` output. Current tracked source total is 8580 lines,
+  including 5215 non-test lines, above the confirmed 4000-line threshold.
 
 ## Recommended Next Slices
 

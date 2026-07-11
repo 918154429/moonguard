@@ -1,0 +1,499 @@
+{
+  "recommendation": "major",
+  "change_count": 61,
+  "summary": {
+    "major": 30,
+    "minor": 31,
+    "patch": 0
+  },
+  "changes": [
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.ACL",
+      "old_signature": null,
+      "new_signature": "ACL"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.BIND",
+      "old_signature": null,
+      "new_signature": "BIND"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.CHECKIN",
+      "old_signature": null,
+      "new_signature": "CHECKIN"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.CHECKOUT",
+      "old_signature": null,
+      "new_signature": "CHECKOUT"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.COPY",
+      "old_signature": null,
+      "new_signature": "COPY"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.LABEL",
+      "old_signature": null,
+      "new_signature": "LABEL"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.LINK",
+      "old_signature": null,
+      "new_signature": "LINK"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.LOCK",
+      "old_signature": null,
+      "new_signature": "LOCK"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.MERGE",
+      "old_signature": null,
+      "new_signature": "MERGE"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.MKACTIVITY",
+      "old_signature": null,
+      "new_signature": "MKACTIVITY"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.MKCALENDAR",
+      "old_signature": null,
+      "new_signature": "MKCALENDAR"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.MKCOL",
+      "old_signature": null,
+      "new_signature": "MKCOL"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.MKREDIRECTREF",
+      "old_signature": null,
+      "new_signature": "MKREDIRECTREF"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.MKWORKSPACE",
+      "old_signature": null,
+      "new_signature": "MKWORKSPACE"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.MOVE",
+      "old_signature": null,
+      "new_signature": "MOVE"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.ORDERPATCH",
+      "old_signature": null,
+      "new_signature": "ORDERPATCH"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.PRI",
+      "old_signature": null,
+      "new_signature": "PRI"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.PROPFIND",
+      "old_signature": null,
+      "new_signature": "PROPFIND"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.PROPPATCH",
+      "old_signature": null,
+      "new_signature": "PROPPATCH"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.QUERY",
+      "old_signature": null,
+      "new_signature": "QUERY"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.REBIND",
+      "old_signature": null,
+      "new_signature": "REBIND"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.REPORT",
+      "old_signature": null,
+      "new_signature": "REPORT"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.SEARCH",
+      "old_signature": null,
+      "new_signature": "SEARCH"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.UNBIND",
+      "old_signature": null,
+      "new_signature": "UNBIND"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.UNCHECKOUT",
+      "old_signature": null,
+      "new_signature": "UNCHECKOUT"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.UNLINK",
+      "old_signature": null,
+      "new_signature": "UNLINK"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.UNLOCK",
+      "old_signature": null,
+      "new_signature": "UNLOCK"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.UPDATE",
+      "old_signature": null,
+      "new_signature": "UPDATE"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.UPDATEREDIRECTREF",
+      "old_signature": null,
+      "new_signature": "UPDATEREDIRECTREF"
+    },
+    {
+      "kind": "added",
+      "impact": "major",
+      "item_kind": "constructor",
+      "name": "HttpMethod.VERSION_CONTROL",
+      "old_signature": null,
+      "new_signature": "VERSION_CONTROL"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "HttpRequest::json",
+      "old_signature": null,
+      "new_signature": "[T : @json.FromJson] HttpRequest::json(Self) -> T raise"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::acl",
+      "old_signature": null,
+      "new_signature": "Mocket::acl(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::bind",
+      "old_signature": null,
+      "new_signature": "Mocket::bind(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::checkin",
+      "old_signature": null,
+      "new_signature": "Mocket::checkin(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::checkout",
+      "old_signature": null,
+      "new_signature": "Mocket::checkout(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::copy",
+      "old_signature": null,
+      "new_signature": "Mocket::copy(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::label",
+      "old_signature": null,
+      "new_signature": "Mocket::label(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::link",
+      "old_signature": null,
+      "new_signature": "Mocket::link(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::lock",
+      "old_signature": null,
+      "new_signature": "Mocket::lock(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::merge",
+      "old_signature": null,
+      "new_signature": "Mocket::merge(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::mkactivity",
+      "old_signature": null,
+      "new_signature": "Mocket::mkactivity(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::mkcalendar",
+      "old_signature": null,
+      "new_signature": "Mocket::mkcalendar(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::mkcol",
+      "old_signature": null,
+      "new_signature": "Mocket::mkcol(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::mkredirectref",
+      "old_signature": null,
+      "new_signature": "Mocket::mkredirectref(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::mkworkspace",
+      "old_signature": null,
+      "new_signature": "Mocket::mkworkspace(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::move_",
+      "old_signature": null,
+      "new_signature": "Mocket::move_(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::orderpatch",
+      "old_signature": null,
+      "new_signature": "Mocket::orderpatch(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::pri",
+      "old_signature": null,
+      "new_signature": "Mocket::pri(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::propfind",
+      "old_signature": null,
+      "new_signature": "Mocket::propfind(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::proppatch",
+      "old_signature": null,
+      "new_signature": "Mocket::proppatch(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::query",
+      "old_signature": null,
+      "new_signature": "Mocket::query(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::rebind",
+      "old_signature": null,
+      "new_signature": "Mocket::rebind(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::report",
+      "old_signature": null,
+      "new_signature": "Mocket::report(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::search",
+      "old_signature": null,
+      "new_signature": "Mocket::search(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::unbind",
+      "old_signature": null,
+      "new_signature": "Mocket::unbind(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::uncheckout",
+      "old_signature": null,
+      "new_signature": "Mocket::uncheckout(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::unlink",
+      "old_signature": null,
+      "new_signature": "Mocket::unlink(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::unlock",
+      "old_signature": null,
+      "new_signature": "Mocket::unlock(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::update",
+      "old_signature": null,
+      "new_signature": "Mocket::update(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::updateredirectref",
+      "old_signature": null,
+      "new_signature": "Mocket::updateredirectref(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "Mocket::version_control",
+      "old_signature": null,
+      "new_signature": "Mocket::version_control(Self, String, async (MocketEvent) -> &Responder noraise) -> Unit"
+    }
+  ]
+}

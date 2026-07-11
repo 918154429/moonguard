@@ -1,0 +1,51 @@
+{
+  "recommendation": "major",
+  "change_count": 5,
+  "summary": {
+    "major": 4,
+    "minor": 1,
+    "patch": 0
+  },
+  "changes": [
+    {
+      "kind": "removed",
+      "impact": "major",
+      "item_kind": "fn",
+      "name": "small_check",
+      "old_signature": "[A : @feat.Enumerable + @debug.Debug, B : Testable] small_check((A) -> B, max_size? : Int, expect? : @state.Expected, abort? : Bool, verbose? : Bool) -> Unit raise Failure",
+      "new_signature": null
+    },
+    {
+      "kind": "removed",
+      "impact": "major",
+      "item_kind": "fn",
+      "name": "small_check_error",
+      "old_signature": "[A : @feat.Enumerable + @debug.Debug, B : Testable] small_check_error((A) -> B raise, max_size? : Int, expect? : @state.Expected, abort? : Bool, verbose? : Bool) -> Unit raise Failure",
+      "new_signature": null
+    },
+    {
+      "kind": "removed",
+      "impact": "major",
+      "item_kind": "fn",
+      "name": "small_check_error_silence",
+      "old_signature": "[A : @feat.Enumerable + @debug.Debug, B : Testable] small_check_error_silence((A) -> B raise, max_size? : Int, expect? : @state.Expected, abort? : Bool, verbose? : Bool) -> String",
+      "new_signature": null
+    },
+    {
+      "kind": "removed",
+      "impact": "major",
+      "item_kind": "fn",
+      "name": "small_check_silence",
+      "old_signature": "[A : @feat.Enumerable + @debug.Debug, B : Testable] small_check_silence((A) -> B, max_size? : Int, expect? : @state.Expected, abort? : Bool, verbose? : Bool) -> String",
+      "new_signature": null
+    },
+    {
+      "kind": "added",
+      "impact": "minor",
+      "item_kind": "fn",
+      "name": "run_testable_once",
+      "old_signature": null,
+      "new_signature": "[P : Testable] run_testable_once(P, Int, @state.State, @state.Expected, Bool) -> (@state.SingleResult, @state.State)"
+    }
+  ]
+}
