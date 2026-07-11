@@ -11,7 +11,7 @@ Repository:
 - Local path:
   `E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\moonguard`
 - Main branch: `master`
-- CI expectation: `moon check`, `moon test`, CLI smoke tests, direct Node check
+- CI expectation: `moon check`, `moon test`, `moon test --target js`, CLI smoke tests, direct Node check
   exit-code tests, and `moon fmt` diff checks should pass.
 
 Toolchain used locally:
@@ -39,6 +39,11 @@ old .mbti text/files -> parse/snapshot -> API model \
                                                     -> diff -> report/check
 new .mbti text/files -> parse/snapshot -> API model /
 ```
+
+For directory input, logical API identity is parent-directory package scope
+plus symbol identity. The source `.mbti` filename is diagnostic provenance, so
+moving a symbol between files in one package produces no change; same-named
+symbols in different package directories remain distinct.
 
 Current impact rules:
 
@@ -76,6 +81,11 @@ Library API in `moonguard.mbt` includes:
   `render_json_check_result`.
 - Ignore rules: `parse_ignore_rules`, `filter_report`,
   `filter_report_with_rules`.
+- Auditable policy: `parse_policy_rules`, `evaluate_policy`,
+  `evaluate_policy_text`, `policy_diagnostics_have_errors`,
+  `make_policy_release_plan`, `render_markdown_policy_evaluation`,
+  `render_json_policy_evaluation`, `render_markdown_policy_release_plan`,
+  `render_json_policy_release_plan`.
 - Snapshot helpers and summaries: `api_file`, `build_api_snapshot`,
   `summarize_report`, `summarize_diagnostics`, `count_items_by_kind`,
   `merge_diagnostics`.
@@ -85,6 +95,9 @@ Public models include:
 - `ApiItem`, `ApiChange`, `ApiReport`
 - `Version`, `VersionCheck`
 - `ApiIgnoreRule`, `IgnoreParseResult`
+- `ApiPolicyRule`, `PolicyParseResult`, `AcceptedApiChange`,
+  `ApiPolicyDiagnostic`, `PolicySummary`, `ApiPolicyEvaluation`,
+  `PolicyReleasePlan`
 - `ApiFile`, `ApiDiagnostic`, `ApiSnapshot`, `ApiPackageComparison`
 - `ApiSummary`, `DiagnosticSummary`, `ApiKindCount`
 - `ReleasePlan`
@@ -92,18 +105,19 @@ Public models include:
 CLI in `cmd/main` supports:
 
 ```sh
-moon run --target js cmd/main -- report old.mbti new.mbti [--format markdown|json] [--ignore-file path]
-moon run --target js cmd/main -- report-dir old_dir new_dir [--format markdown|json] [--ignore-file path]
+moon run --target js cmd/main -- report old.mbti new.mbti [--format markdown|json] [--ignore-file path | --policy-file path] [--policy-version version]
+moon run --target js cmd/main -- report-dir old_dir new_dir [--format markdown|json] [--ignore-file path | --policy-file path] [--policy-version version]
 moon run --target js cmd/main -- inventory-dir dir [--format markdown|json]
-moon run --target js cmd/main -- check old.mbti new.mbti --current 0.1.0 --next 0.2.0 [--format markdown|json] [--ignore-file path]
-moon run --target js cmd/main -- check-dir old_dir new_dir --current 0.1.0 --next 0.2.0 [--format markdown|json] [--ignore-file path]
-moon run --target js cmd/main -- release-plan old_dir new_dir --current 0.1.0 --next 0.2.0 [--format markdown|json] [--ignore-file path]
-moon run cmd/main -- report-text "pub fn old() -> Unit" "pub fn new() -> Unit" [--format markdown|json] [--ignore-file path]
+moon run --target js cmd/main -- check old.mbti new.mbti --current 0.1.0 --next 0.2.0 [--format markdown|json] [--ignore-file path | --policy-file path] [--policy-version version]
+moon run --target js cmd/main -- check-dir old_dir new_dir --current 0.1.0 --next 0.2.0 [--format markdown|json] [--ignore-file path | --policy-file path] [--policy-version version]
+moon run --target js cmd/main -- release-plan old_dir new_dir --current 0.1.0 --next 0.2.0 [--format markdown|json] [--ignore-file path | --policy-file path] [--policy-version version]
+moon run cmd/main -- report-text "pub fn old() -> Unit" "pub fn new() -> Unit" [--format markdown|json] [--ignore-file path | --policy-file path] [--policy-version version]
 ```
 
 All report and check commands also accept `--config path`. Config files use
-simple `key = value` lines for `format`, `ignore_file`, `current`, `next`,
-`baseline`, `target`, `baseline_dir`, and `target_dir`. File and directory
+simple `key = value` lines for `format`, `ignore_file`, `policy_file`,
+`policy_version`, `current`, `next`, `baseline`, `target`, `baseline_dir`, and
+`target_dir`. File and directory
 commands may omit positional paths when the corresponding config defaults are
 present. Command-line positional paths and options override config defaults.
 
@@ -130,19 +144,53 @@ ignore * pkg.generated.mbti::internal_*
 Ignore rules filter report changes and recommendations. They do not change the
 raw parser or snapshot output.
 
+Prefer policy files for new release governance:
+
+```text
+allow changed fn render until 0.2.0 max_matches 1 reason render migration reviewed
+allow removed fn legacy_* max_matches 2 reason legacy cleanup approved
+```
+
+Policy syntax is `allow CHANGE_KIND ITEM_KIND NAME [until VERSION]
+[max_matches N] reason TEXT...`. The reason is required, `max_matches` defaults
+to `1`, and change kind may be `added`, `removed`, `changed`, or `*`. Policy
+evaluation retains original and effective reports plus accepted-change audit
+records. Expired, malformed, missing-version, and over-budget policies fail
+closed. `check`, `check-dir`, and `release-plan` fall back to `--next` as the
+policy version. `--ignore-file` and `--policy-file` are mutually exclusive;
+`inventory-dir` rejects policy files.
+
+CLI exit codes are `0` for success/sufficient bump, `1` for an insufficient
+version bump after valid evaluation, and `2` for input, config, snapshot, or
+policy errors that prevent a reliable decision.
+
+Core modules are now split into `api_model.mbt`, `parser.mbt`, `snapshot.mbt`,
+`diff.mbt`, `semver.mbt`, `policy.mbt`, `report_markdown.mbt`, and
+`report_json.mbt`. CLI responsibilities are split across `args.mbt`,
+`config.mbt`, `commands.mbt`, `output.mbt`, `snapshot_io.mbt`, and the two
+backend I/O files under `cmd/main`.
+
 ## Tests, Fixtures, And CI
 
 Test files:
 
 - `moonguard_test.mbt`
 - `moonguard_wbtest.mbt`
+- `policy_test.mbt`
+- `policy_wbtest.mbt`
 - `cmd/main/main_wbtest.mbt`
+- `cmd/main/main_js_wbtest.mbt`
+- `cmd/main/main_nonjs_wbtest.mbt`
 
 Fixtures:
 
 - `fixtures/old.mbti`
 - `fixtures/new.mbti`
 - `fixtures/ignore-render.rules`
+- `fixtures/allow-render.policy`
+- `fixtures/allow-dir.policy`
+- `fixtures/expired-render.policy`
+- `fixtures/moonguard-policy.conf`
 - `fixtures/dir-old`
 - `fixtures/dir-new`
 - `fixtures/dir-duplicate`
@@ -152,7 +200,8 @@ Fixtures:
 Current local test result:
 
 ```text
-Total tests: 139, passed: 139, failed: 0.
+Default target: 162 tests, passed: 162, failed: 0.
+JS target: 163 tests, passed: 163, failed: 0.
 Instrumented coverage: 1900/2183 lines (87.0%).
 ```
 
@@ -160,10 +209,13 @@ GitHub Actions should cover:
 
 - `moon check`
 - `moon test`
+- `moon test --target js`
 - Markdown and JSON CLI report smoke tests
 - config-driven CLI smoke tests
 - directory report, directory check, and inventory smoke tests
 - release-plan Markdown/JSON/config smoke tests
+- policy CLI/config, audit rendering, fail-closed diagnostics, and effective
+  SemVer assertions
 - direct Node `check`, `check-dir`, and `release-plan` exit-code assertions
 - `moon fmt` plus `git diff --exit-code`
 
@@ -202,8 +254,8 @@ gh run list --repo 918154429/moonguard --limit 5
 - Parser is line-oriented and intentionally conservative.
 - It models common generated `.mbti` nested members, but it is not a full
   MoonBit source parser.
-- One pinned historical sample contains 119 unqualified associated `fn`/`impl`
-  lines that are reported by the corpus analyzer but not yet modeled.
+- Historical `moon info` interfaces with a generator header and package
+  declaration include unqualified associated `fn`/`impl` lines in the model.
 - Native file and directory input is not implemented; CLI file/directory mode
   is JS target only.
 - Source-line competition tracking counts repository `.mbt` files and excludes
@@ -216,9 +268,7 @@ gh run list --repo 918154429/moonguard --limit 5
 Strong next options:
 
 - Add a baseline save/update command around the documented baseline workflow.
-- Add legacy parsing for unqualified associated methods and implementations.
-- Split the large implementation into parser, model, diff, semver, report, and
-  CLI-focused modules once the public API shape is stable.
+- Add performance baselines for large snapshots and large policy rule sets.
 
 ## Competition Positioning
 

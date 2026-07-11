@@ -26,6 +26,10 @@ You can browse and install extra skills here:
 
 ## Tooling
 
+- On this Windows workspace, MoonBit is installed at
+  `E:\C_Moved_From_C\Users\Lenovo\Desktop\schoolwork\CCF\moonbit\.toolchain\bin\moon.exe`.
+  Use this absolute path when `moon` is not available on `PATH`.
+
 - `moon fmt` is used to format your code properly.
 
 - `moon ide` provides project navigation helpers like `peek-def`, `outline`, and

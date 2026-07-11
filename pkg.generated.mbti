@@ -30,9 +30,15 @@ pub fn diff_interfaces(String, String) -> ApiReport
 
 pub fn diff_items(Array[ApiItem], Array[ApiItem]) -> ApiReport
 
+pub fn evaluate_policy(ApiReport, Array[ApiPolicyRule], String) -> ApiPolicyEvaluation
+
+pub fn evaluate_policy_text(ApiReport, String, String) -> ApiPolicyEvaluation
+
 pub fn filter_report(ApiReport, String) -> ApiReport
 
 pub fn filter_report_with_rules(ApiReport, Array[ApiIgnoreRule]) -> ApiReport
+
+pub fn make_policy_release_plan(ApiPolicyEvaluation, Array[ApiDiagnostic], String, String) -> PolicyReleasePlan
 
 pub fn make_release_plan(ApiReport, Array[ApiDiagnostic], String, String) -> ReleasePlan
 
@@ -44,13 +50,21 @@ pub fn parse_interface(String) -> Array[ApiItem]
 
 pub fn parse_interface_with_namespace(String, String) -> Array[ApiItem]
 
+pub fn parse_policy_rules(String) -> PolicyParseResult
+
 pub fn parse_version(String) -> Version?
+
+pub fn policy_diagnostics_have_errors(Array[ApiPolicyDiagnostic]) -> Bool
 
 pub fn render_json_check_result(ApiReport, VersionCheck) -> String
 
 pub fn render_json_package_check_result(ApiReport, Array[ApiDiagnostic], VersionCheck) -> String
 
 pub fn render_json_package_report(ApiReport, Array[ApiDiagnostic]) -> String
+
+pub fn render_json_policy_evaluation(ApiPolicyEvaluation) -> String
+
+pub fn render_json_policy_release_plan(PolicyReleasePlan) -> String
 
 pub fn render_json_release_plan(ReleasePlan) -> String
 
@@ -61,6 +75,10 @@ pub fn render_json_snapshot_inventory(ApiSnapshot) -> String
 pub fn render_markdown_package_check_result(ApiReport, Array[ApiDiagnostic], VersionCheck) -> String
 
 pub fn render_markdown_package_report(ApiReport, Array[ApiDiagnostic]) -> String
+
+pub fn render_markdown_policy_evaluation(ApiPolicyEvaluation) -> String
+
+pub fn render_markdown_policy_release_plan(PolicyReleasePlan) -> String
 
 pub fn render_markdown_release_plan(ReleasePlan) -> String
 
@@ -81,6 +99,11 @@ pub fn version_to_string(Version) -> String
 // Errors
 
 // Types and methods
+pub struct AcceptedApiChange {
+  change : ApiChange
+  rule : ApiPolicyRule
+} derive(Eq, @debug.Debug)
+
 pub struct ApiChange {
   kind : ChangeKind
   impact : Impact
@@ -128,6 +151,31 @@ pub struct ApiPackageComparison {
   diagnostic_summary : DiagnosticSummary
 } derive(Eq, @debug.Debug)
 
+pub struct ApiPolicyDiagnostic {
+  severity : String
+  code : String
+  line : Int
+  message : String
+} derive(Eq, @debug.Debug)
+
+pub struct ApiPolicyEvaluation {
+  original_report : ApiReport
+  effective_report : ApiReport
+  accepted_changes : Array[AcceptedApiChange]
+  diagnostics : Array[ApiPolicyDiagnostic]
+  summary : PolicySummary
+} derive(Eq, @debug.Debug)
+
+pub struct ApiPolicyRule {
+  change_kind : String
+  item_kind : String
+  name : String
+  until : String
+  max_matches : Int
+  reason : String
+  line : Int
+} derive(Eq, @debug.Debug)
+
 pub struct ApiReport {
   changes : Array[ApiChange]
   recommendation : Impact
@@ -170,6 +218,24 @@ pub(all) enum Impact {
   Patch
   Minor
   Major
+} derive(Eq, @debug.Debug)
+
+pub struct PolicyParseResult {
+  rules : Array[ApiPolicyRule]
+  errors : Array[String]
+} derive(Eq, @debug.Debug)
+
+pub struct PolicyReleasePlan {
+  evaluation : ApiPolicyEvaluation
+  plan : ReleasePlan
+} derive(Eq, @debug.Debug)
+
+pub struct PolicySummary {
+  rule_count : Int
+  matched_rule_count : Int
+  accepted_change_count : Int
+  errors : Int
+  warnings : Int
 } derive(Eq, @debug.Debug)
 
 pub struct ReleasePlan {

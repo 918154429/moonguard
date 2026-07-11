@@ -7,24 +7,66 @@ This report records the reproducible competition demo state validated on
 
 | Check | Result |
 | --- | ---: |
-| MoonBit tests | 139 passed, 0 failed |
+| MoonBit tests | 162 passed, 0 failed |
+| MoonBit JS-target tests | 163 passed, 0 failed |
 | Instrumented coverage | 1900 / 2183 lines (87.0%) |
 | Core library coverage | 1499 / 1654 lines (90.6%) |
 | Real `.mbti` samples | 15 |
-| Parsed real API items | 6700 |
+| Parsed real API items | 6819 |
 | Unknown real declarations | 0 |
 | Real snapshot diagnostics | 0 |
 | Modern-format samples fully modeled | 14 / 14 |
-| Historical-format samples partially modeled | 1 / 1 |
+| Historical-format samples fully modeled | 1 / 1 |
 
 The real corpus includes official MoonBit projects and independent community
 libraries. Exact repositories, paths, revisions, and licenses are recorded in
 `fixtures/real/SOURCES.md`; the per-sample parser result is recorded in
 `docs/real-world-compatibility.md`.
 
-The partial historical sample contains 119 associated `fn`/`impl` lines without
-a `pub` visibility prefix. MoonGuard does not silently claim those lines are
-covered: the corpus analyzer reports them separately as a legacy-format gap.
+The historical sample contains 119 associated `fn`/`impl` lines without a
+`pub` visibility prefix. MoonGuard models them only after recognizing the
+historical `moon info` generator header and package declaration.
+
+## Package Identity Regression
+
+Directory snapshots now derive logical identity from the parent-directory
+package scope plus the API symbol. The individual `.mbti` filename is retained
+for diagnostics but does not participate in same-package identity. Regression
+tests demonstrate that moving a declaration from `pkg/a.mbti` to `pkg/b.mbti`
+produces zero changes and a `patch` recommendation, while same-named symbols in
+different package directories remain distinct and duplicates inside one
+package are still diagnosed.
+
+## Auditable Policy Demo
+
+Run a report with a reviewed compatibility exception:
+
+```sh
+moon run --target js cmd/main -- report \
+  fixtures/old.mbti fixtures/new.mbti --format json \
+  --policy-file fixtures/allow-render.policy --policy-version 0.2.0
+```
+
+The output contains `original_report`, `effective_report`, accepted changes,
+the owning rule and reason, policy counters, and diagnostics. The fixture rule
+uses a deadline and a one-change match budget:
+
+```text
+allow changed fn render until 0.2.0 max_matches 1 reason render migration reviewed
+```
+
+Using `fixtures/expired-render.policy` at version `0.2.0`, omitting a required
+policy version, or exceeding a rule budget fails closed and exits with status
+`2`. A valid effective report whose proposed version is insufficient exits
+with status `1`; a sufficient decision exits with `0`.
+
+## Refactoring Result
+
+The former monolithic implementation is now separated into API model, parser,
+snapshot, diff, SemVer, policy, Markdown renderer, and JSON renderer modules.
+The CLI is independently split into argument, configuration, command, output,
+snapshot I/O, and backend I/O modules. This preserves the public workflow while
+making parser, governance, rendering, and CLI changes independently testable.
 
 ## Breaking Change Demo
 
@@ -99,6 +141,7 @@ moon fmt --check
 moon info
 moon check
 moon test
+moon test --target js
 moon coverage analyze
 moon coverage report -- -f summary
 moon run --target js cmd/main -- inventory-dir fixtures/real --format json

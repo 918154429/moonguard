@@ -98,32 +98,6 @@ test "report-text validates ignore-file option" {
 }
 
 ///|
-test "report-text reports non-js ignore-file read error" {
-  let result = run_args_result([
-    "moonguard", "report-text", "pub fn a() -> Unit", "pub fn b() -> Unit", "--ignore-file",
-    "rules.txt",
-  ])
-  inspect(
-    result.output,
-    content="error: cannot read ignore file 'rules.txt': file input currently requires the JS backend; run with `moon run --target js cmd/main -- report old.mbti new.mbti`",
-  )
-  inspect(result.exit_code, content="2")
-}
-
-///|
-test "report-text reports non-js config read error" {
-  let result = run_args_result([
-    "moonguard", "report-text", "pub fn a() -> Unit", "pub fn b() -> Unit", "--config",
-    "moonguard.conf",
-  ])
-  inspect(
-    result.output,
-    content="error: cannot read config file 'moonguard.conf': file input currently requires the JS backend; run with `moon run --target js cmd/main -- report old.mbti new.mbti`",
-  )
-  inspect(result.exit_code, content="2")
-}
-
-///|
 test "render ignore errors includes all parser errors" {
   inspect(
     render_ignore_errors("rules.txt", [
@@ -138,25 +112,6 @@ test "render ignore errors includes all parser errors" {
 }
 
 ///|
-test "report-dir explains non-js backend requirement" {
-  inspect(
-    run_args(["moonguard", "report-dir", "old-dir", "new-dir"]),
-    content="error: cannot list old interface directory 'old-dir': directory input currently requires the JS backend; run with `moon run --target js cmd/main -- report-dir old_dir new_dir`",
-  )
-}
-
-///|
-test "run_args ignores js process argv prefix for report-dir" {
-  inspect(
-    run_args([
-      "node", "_build/default/js/release/build/cmd/main/main.js", "report-dir", "old-dir",
-      "new-dir",
-    ]),
-    content="error: cannot list old interface directory 'old-dir': directory input currently requires the JS backend; run with `moon run --target js cmd/main -- report-dir old_dir new_dir`",
-  )
-}
-
-///|
 test "check-dir requires versions before reading directories" {
   let result = run_args_result(["moonguard", "check-dir", "old-dir", "new-dir"])
   inspect(
@@ -164,30 +119,6 @@ test "check-dir requires versions before reading directories" {
     content="error: check requires --current major.minor.patch",
   )
   inspect(result.exit_code, content="2")
-}
-
-///|
-test "check-dir explains non-js backend requirement" {
-  let result = run_args_result([
-    "moonguard", "check-dir", "old-dir", "new-dir", "--current", "1.0.0", "--next",
-    "2.0.0",
-  ])
-  inspect(
-    result.output,
-    content="error: cannot list old interface directory 'old-dir': directory input currently requires the JS backend; run with `moon run --target js cmd/main -- report-dir old_dir new_dir`",
-  )
-  inspect(result.exit_code, content="2")
-}
-
-///|
-test "run_args ignores js process argv prefix for check-dir" {
-  inspect(
-    run_args([
-      "node", "_build/default/js/release/build/cmd/main/main.js", "check-dir", "old-dir",
-      "new-dir", "--current", "1.0.0", "--next", "2.0.0",
-    ]),
-    content="error: cannot list old interface directory 'old-dir': directory input currently requires the JS backend; run with `moon run --target js cmd/main -- report-dir old_dir new_dir`",
-  )
 }
 
 ///|
@@ -273,16 +204,6 @@ test "inventory result fails duplicate diagnostics" {
   inspect(result.exit_code, content="2")
   assert_true(result.output.contains("duplicate-symbol"))
   assert_true(result.output.contains("errors 1"))
-}
-
-///|
-test "inventory command reports non-js list error" {
-  let result = run_args_result(["moonguard", "inventory-dir", "fixtures"])
-  inspect(
-    result.output,
-    content="error: cannot list interface directory 'fixtures': directory input currently requires the JS backend; run with `moon run --target js cmd/main -- report-dir old_dir new_dir`",
-  )
-  inspect(result.exit_code, content="2")
 }
 
 ///|
@@ -472,6 +393,8 @@ test "config defaults merge with report options" {
   let config = {
     format: "json",
     ignore_file: "config.rules",
+    policy_file: "",
+    policy_version: "",
     current: "0.1.0",
     next: "1.0.0",
     baseline: "config-old.mbti",
@@ -503,6 +426,8 @@ test "config path defaults merge without positional report paths" {
   let config = {
     format: "json",
     ignore_file: "",
+    policy_file: "",
+    policy_version: "",
     current: "",
     next: "",
     baseline: "config-old.mbti",
@@ -535,6 +460,8 @@ test "command line report options override config defaults" {
   let config = {
     format: "json",
     ignore_file: "config.rules",
+    policy_file: "",
+    policy_version: "",
     current: "0.1.0",
     next: "1.0.0",
     baseline: "config-old.mbti",
@@ -564,6 +491,8 @@ test "config supplies check versions" {
   let config = {
     format: "json",
     ignore_file: "",
+    policy_file: "",
+    policy_version: "",
     current: "0.1.0",
     next: "1.0.0",
     baseline: "config-old.mbti",
@@ -593,6 +522,8 @@ test "config path defaults merge without positional check paths" {
   let config = {
     format: "json",
     ignore_file: "",
+    policy_file: "",
+    policy_version: "",
     current: "0.1.0",
     next: "1.0.0",
     baseline: "config-old.mbti",
@@ -619,6 +550,8 @@ test "command line check versions override config defaults" {
   let config = {
     format: "json",
     ignore_file: "",
+    policy_file: "",
+    policy_version: "",
     current: "0.1.0",
     next: "1.0.0",
     baseline: "config-old.mbti",
@@ -687,34 +620,6 @@ test "optional path parsers allow config only commands" {
     Err(message) =>
       inspect(message, content="error: inventory-dir requires DIR")
   }
-}
-
-///|
-test "config only commands reach config loading" {
-  let report = run_args_result([
-    "moonguard", "report", "--config", "moonguard.conf",
-  ])
-  inspect(
-    report.output,
-    content="error: cannot read config file 'moonguard.conf': file input currently requires the JS backend; run with `moon run --target js cmd/main -- report old.mbti new.mbti`",
-  )
-  inspect(report.exit_code, content="2")
-  let check = run_args_result([
-    "moonguard", "check", "--config", "moonguard.conf",
-  ])
-  inspect(
-    check.output,
-    content="error: cannot read config file 'moonguard.conf': file input currently requires the JS backend; run with `moon run --target js cmd/main -- report old.mbti new.mbti`",
-  )
-  inspect(check.exit_code, content="2")
-  let inventory = run_args_result([
-    "moonguard", "inventory-dir", "--config", "moonguard.conf",
-  ])
-  inspect(
-    inventory.output,
-    content="error: cannot read config file 'moonguard.conf': file input currently requires the JS backend; run with `moon run --target js cmd/main -- report old.mbti new.mbti`",
-  )
-  inspect(inventory.exit_code, content="2")
 }
 
 ///|
@@ -797,19 +702,6 @@ test "check command requires versions before reading files" {
 }
 
 ///|
-test "check command reports non-js read errors with exit code two" {
-  let result = run_args_result([
-    "moonguard", "check", "old.mbti", "new.mbti", "--current", "1.0.0", "--next",
-    "2.0.0",
-  ])
-  inspect(
-    result.output,
-    content="error: cannot read old interface file 'old.mbti': file input currently requires the JS backend; run with `moon run --target js cmd/main -- report old.mbti new.mbti`",
-  )
-  inspect(result.exit_code, content="2")
-}
-
-///|
 test "check report result fails insufficient major bump" {
   let report = @moonguard.diff_interfaces(
     "pub fn render(String) -> String", "pub fn render(String, Options) -> String",
@@ -859,5 +751,103 @@ test "help mentions file and text modes" {
   assert_true(help.contains("report-text"))
   assert_true(help.contains("--format markdown|json"))
   assert_true(help.contains("--ignore-file path"))
+  assert_true(help.contains("--policy-file path"))
+  assert_true(help.contains("--policy-version version"))
   assert_true(help.contains("--config path"))
+}
+
+///|
+test "policy options require values and conflict with ignore" {
+  inspect(
+    run_args_result([
+      "moonguard", "report-text", "pub fn a() -> Unit", "", "--policy-file",
+    ]).output,
+    content="error: --policy-file requires a path",
+  )
+  inspect(
+    run_args_result([
+      "moonguard", "report-text", "pub fn a() -> Unit", "", "--policy-version",
+    ]).output,
+    content="error: --policy-version requires a major.minor.patch version",
+  )
+  let conflict = run_args_result([
+    "moonguard", "report-text", "pub fn old() -> Unit", "", "--ignore-file", "ignore.rules",
+    "--policy-file", "release.policy",
+  ])
+  inspect(
+    conflict.output,
+    content="error: --ignore-file and --policy-file cannot be used together",
+  )
+}
+
+///|
+test "config parses policy settings and check falls back to next" {
+  match
+    parse_cli_config(
+      "moonguard.conf", "policy_file = release.policy\npolicy_version = 0.4.0\n",
+    ) {
+    Err(message) => fail(message)
+    Ok(config) => {
+      inspect(config.policy_file, content="release.policy")
+      inspect(config.policy_version, content="0.4.0")
+    }
+  }
+  let config = {
+    format: "json",
+    ignore_file: "",
+    policy_file: "release.policy",
+    policy_version: "",
+    current: "0.1.0",
+    next: "0.2.0",
+    baseline: "old.mbti",
+    target: "new.mbti",
+    baseline_dir: "old-dir",
+    target_dir: "new-dir",
+  }
+  match parse_check_options(["check", "--config", "moonguard.conf"][:], 1) {
+    Err(message) => fail(message)
+    Ok(options) => {
+      let merged = merge_check_options(options, config)
+      inspect(merged.policy_file, content="release.policy")
+      inspect(merged.policy_version, content="0.2.0")
+    }
+  }
+  let configured_deadline = {
+    format: "json",
+    ignore_file: "",
+    policy_file: "release.policy",
+    policy_version: "0.3.0",
+    current: "0.1.0",
+    next: "0.3.0",
+    baseline: "old.mbti",
+    target: "new.mbti",
+    baseline_dir: "old-dir",
+    target_dir: "new-dir",
+  }
+  match
+    parse_check_options(
+      [
+        "check", "--current", "0.1.0", "--next", "0.2.0", "--config", "moonguard.conf",
+      ][:],
+      1,
+    ) {
+    Err(message) => fail(message)
+    Ok(options) =>
+      inspect(
+        merge_check_options(options, configured_deadline).policy_version,
+        content="0.2.0",
+      )
+  }
+}
+
+///|
+test "inventory rejects policy files" {
+  let result = run_args_result([
+    "moonguard", "inventory-dir", "fixtures", "--policy-file", "release.policy",
+  ])
+  inspect(
+    result.output,
+    content="error: inventory-dir does not support --policy-file",
+  )
+  inspect(result.exit_code, content="2")
 }

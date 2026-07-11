@@ -25,6 +25,57 @@ test "parse public functions and types" {
 }
 
 ///|
+test "legacy moon info interfaces parse unqualified functions and impls" {
+  let api = @moonguard.parse_interface(
+    (
+      #|// Generated using `moon info`, DON'T EDIT IT
+      #|package "legacy/example"
+      #|
+      #|fn init_py() -> Unit
+      #|fn[T] PyList::from(Array[T]) -> Self
+      #|async fn PyList::load(Self) -> Unit
+      #|impl Show for PyList
+    ),
+  )
+  inspect(api.length(), content="4")
+  inspect(api[0].kind, content="fn")
+  inspect(api[0].name, content="PyList::from")
+  inspect(api[1].name, content="PyList::load")
+  inspect(api[2].name, content="init_py")
+  inspect(api[3].kind, content="impl")
+  inspect(api[3].name, content="Show for PyList")
+}
+
+///|
+test "ordinary interfaces ignore unqualified functions and impls" {
+  let api = @moonguard.parse_interface(
+    (
+      #|package "ordinary/example"
+      #|fn private_helper() -> Unit
+      #|impl Show for Hidden
+    ),
+  )
+  inspect(api.length(), content="0")
+}
+
+///|
+test "legacy associated method signature changes are major" {
+  let old_api =
+    #|// Generated using `moon info`, DON'T EDIT IT
+    #|package "legacy/example"
+    #|fn PyDict::get(Self, String) -> Int
+  let new_api =
+    #|// Generated using `moon info`, DON'T EDIT IT
+    #|package "legacy/example"
+    #|fn PyDict::get(Self, String) -> String
+  let report = @moonguard.diff_interfaces(old_api, new_api)
+  assert_true(report.recommendation == @moonguard.Major)
+  inspect(report.changes.length(), content="1")
+  assert_true(report.changes[0].kind == @moonguard.Changed)
+  inspect(report.changes[0].name, content="PyDict::get")
+}
+
+///|
 test "normalize whitespace and ignore comments" {
   let api = @moonguard.parse_interface(
     (
@@ -686,13 +737,34 @@ test "build api snapshot namespaces files" {
   inspect(snapshot.diagnostics.length(), content="0")
   inspect(snapshot.items.length(), content="4")
   inspect(snapshot.items[0].kind, content="field")
-  inspect(snapshot.items[0].name, content="pkg.generated.mbti::Options.mode")
+  inspect(snapshot.items[0].name, content="Options.mode")
   inspect(snapshot.items[1].kind, content="fn")
-  inspect(snapshot.items[1].name, content="cmd/pkg.generated.mbti::main")
+  inspect(snapshot.items[1].name, content="cmd::main")
   inspect(snapshot.items[2].kind, content="fn")
-  inspect(snapshot.items[2].name, content="pkg.generated.mbti::render")
+  inspect(snapshot.items[2].name, content="render")
   inspect(snapshot.items[3].kind, content="struct")
-  inspect(snapshot.items[3].name, content="pkg.generated.mbti::Options")
+  inspect(snapshot.items[3].name, content="Options")
+}
+
+///|
+test "moving an api between files in one package preserves identity" {
+  let comparison = @moonguard.compare_api_file_sets(
+    [@moonguard.api_file("pkg/a.mbti", "pub fn render() -> Unit")],
+    [@moonguard.api_file("pkg/b.mbti", "pub fn render() -> Unit")],
+  )
+  inspect(comparison.report.changes.length(), content="0")
+  assert_true(comparison.report.recommendation == @moonguard.Patch)
+}
+
+///|
+test "same api names in different packages remain distinct" {
+  let snapshot = @moonguard.build_api_snapshot([
+    @moonguard.api_file("alpha/pkg.generated.mbti", "pub fn render() -> Unit"),
+    @moonguard.api_file("beta/pkg.generated.mbti", "pub fn render() -> Unit"),
+  ])
+  inspect(snapshot.diagnostics.length(), content="0")
+  inspect(snapshot.items[0].name, content="alpha::render")
+  inspect(snapshot.items[1].name, content="beta::render")
 }
 
 ///|
@@ -707,6 +779,22 @@ test "build api snapshot reports empty file list" {
     content="no interface files were provided",
   )
   assert_true(!@moonguard.diagnostics_have_errors(snapshot.diagnostics))
+}
+
+///|
+test "duplicate diagnostics aggregate large sorted identity runs" {
+  let files : Array[@moonguard.ApiFile] = []
+  for _i in 0..<200 {
+    files.push(
+      @moonguard.api_file(
+        "pkg.generated.mbti", "pub fn repeated() -> Unit // \\{i}",
+      ),
+    )
+  }
+  let snapshot = @moonguard.build_api_snapshot(files)
+  inspect(snapshot.diagnostics.length(), content="1")
+  inspect(snapshot.diagnostics[0].code, content="duplicate-symbol")
+  assert_true(snapshot.diagnostics[0].message.contains("appears 200 times"))
 }
 
 ///|
@@ -743,7 +831,7 @@ test "build api snapshot reports duplicate symbols" {
   inspect(snapshot.diagnostics[0].path, content="pkg.generated.mbti")
   inspect(
     snapshot.diagnostics[0].message,
-    content="duplicate API item 'fn pkg.generated.mbti::render' appears 2 times",
+    content="duplicate API item 'fn render' appears 2 times",
   )
 }
 
@@ -769,8 +857,8 @@ test "diff api snapshots compares package items" {
   let report = @moonguard.diff_api_snapshots(old_snapshot, new_snapshot)
   assert_true(report.recommendation == @moonguard.Major)
   inspect(report.changes.length(), content="2")
-  inspect(report.changes[0].name, content="pkg.generated.mbti::render")
-  inspect(report.changes[1].name, content="pkg.generated.mbti::parse")
+  inspect(report.changes[0].name, content="render")
+  inspect(report.changes[1].name, content="parse")
 }
 
 ///|
@@ -1103,11 +1191,7 @@ test "render json snapshot inventory with duplicate diagnostics" {
   assert_true(json.contains("\"item_count\": 2"))
   assert_true(json.contains("\"errors\": 1"))
   assert_true(json.contains("\"code\": \"duplicate-symbol\""))
-  assert_true(
-    json.contains(
-      "duplicate API item 'fn pkg.generated.mbti::render' appears 2 times",
-    ),
-  )
+  assert_true(json.contains("duplicate API item 'fn render' appears 2 times"))
 }
 
 ///|
@@ -1162,8 +1246,8 @@ test "package comparison can be filtered after comparison" {
   let filtered = @moonguard.filter_report(
     comparison.report,
     (
-      #|ignore fn pkg.generated.mbti::debug_tmp
-      #|ignore fn pkg.generated.mbti::render
+      #|ignore fn debug_tmp
+      #|ignore fn render
     ),
   )
   assert_true(filtered.recommendation == @moonguard.Patch)
@@ -1880,9 +1964,9 @@ test "using trait exports do not collide as duplicate symbols" {
   ])
   inspect(snapshot.diagnostics.length(), content="0")
   inspect(snapshot.items.length(), content="3")
-  inspect(snapshot.items[0].name, content="prelude/pkg.generated.mbti::Add")
-  inspect(snapshot.items[1].name, content="prelude/pkg.generated.mbti::Debug")
-  inspect(snapshot.items[2].name, content="prelude/pkg.generated.mbti::Eq")
+  inspect(snapshot.items[0].name, content="prelude::Add")
+  inspect(snapshot.items[1].name, content="prelude::Debug")
+  inspect(snapshot.items[2].name, content="prelude::Eq")
 }
 
 ///|

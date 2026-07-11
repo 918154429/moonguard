@@ -28,7 +28,52 @@ MoonGuard 将以下新增统一判为 `major`：
 
 这些规则有意比“所有新增 API 都是 minor”更严格。顶层新增只扩展命名空间，而嵌套成员新增会改变已有类型或 trait 的封闭形状，可能直接破坏结构体构造、穷尽匹配或既有 trait 实现。因此，MoonGuard 不把它们与普通顶层新增混为一类。
 
-目前解析的 `.mbti` 信息不足以可靠区分“带兼容默认实现的方法”和“所有实现都必须提供的方法”。为避免漏报，新增 trait 方法按必需方法处理。项目若能通过额外语义信息证明某个新增方法兼容，可以使用 ignore rule 显式接受该变化，并在发布说明中记录原因。
+目前解析的 `.mbti` 信息不足以可靠区分“带兼容默认实现的方法”和“所有实现都必须提供的方法”。为避免漏报，新增 trait 方法按必需方法处理。项目若能通过额外语义信息证明某个新增方法兼容，可以使用可审计 policy rule 显式接受该变化，并在发布说明中记录原因。
+
+## 目录快照的 API 身份
+
+目录比较中，API 的逻辑身份由“父目录 package scope + 符号身份”组成，具体 `.mbti` 文件名只作为来源信息。举例：
+
+- `pkg/a.mbti` 中的 `render` 移到 `pkg/b.mbti`，逻辑身份仍为 `pkg::render`，因此是 `patch` 且没有 API change；
+- `pkg-a/a.mbti` 与 `pkg-b/b.mbti` 中的同名 `render` 属于不同 package scope，互不覆盖；
+- 同一 package scope 内重复定义同种类、同名称符号，仍产生 `duplicate-symbol` 诊断；
+- 诊断保留原始文件路径，便于定位，路径不参与同包内的兼容性身份判断。
+
+这避免了纯文件整理被误报为一次删除加一次新增，同时保留跨包移动和真实重复定义的可见性。
+
+## 可审计兼容性策略
+
+策略文件每行一条规则：
+
+```text
+allow CHANGE_KIND ITEM_KIND NAME [until VERSION] [max_matches N] reason TEXT...
+```
+
+例如：
+
+```text
+allow changed fn render until 0.2.0 max_matches 1 reason render migration reviewed
+allow removed fn legacy_* max_matches 2 reason legacy cleanup approved
+```
+
+- `CHANGE_KIND` 可为 `added`、`removed`、`changed` 或 `*`；
+- `ITEM_KIND` 使用 API 种类或 `*`；
+- `NAME` 支持 `*` 通配；
+- `until` 是可选的严格 `major.minor.patch` 截止版本，目标版本超过它即过期；
+- `max_matches` 必须为正整数，省略时默认为 `1`；
+- `reason` 必填且不可为空。
+
+策略求值同时保留 `original_report` 与移除已接受变化后的 `effective_report`，并输出每项 accepted change 所属规则、理由、截止版本、预算以及策略诊断。SemVer 检查和 release plan 基于 effective report，但审计输出不会隐藏原始 breaking change。
+
+策略采用 fail-closed 行为：解析错误、规则过期、需要但缺失目标版本、目标版本无效或匹配数超过预算时，规则不接受任何变化，并产生错误诊断。未命中规则和重叠规则产生警告；多个有效规则匹配同一变化时，由第一条规则拥有审计记录。
+
+CLI 使用 `--policy-file PATH` 和可选的 `--policy-version VERSION`。`check`、`check-dir` 与 `release-plan` 在未显式指定策略版本时使用 `--next`。配置文件对应 `policy_file` 与 `policy_version`。策略文件与旧 `--ignore-file` 互斥，`inventory-dir` 不支持策略文件。
+
+退出码约定：
+
+- `0`：有效报告或版本提升满足 effective recommendation；
+- `1`：输入与策略有效，但版本提升不足；
+- `2`：输入、快照、配置或策略诊断阻止可靠判定。
 
 ## 格式规范化
 
@@ -53,5 +98,4 @@ pub struct Options {
 - MoonGuard 以 `.mbti` 文本快照为输入，不进行完整 MoonBit 类型检查或源码级调用分析。
 - attribute、可见性、泛型约束和签名文本的实质变化按 `major` 处理。
 - 无法识别的公共声明会作为 `unknown` 保留在快照中，避免静默忽略潜在 API。
-- ignore rule 是显式风险接受机制，不会改变默认兼容规则。
-
+- 旧 ignore rule 仍作为兼容功能存在，但会直接过滤变化；新的 policy rule 是推荐的风险接受机制，因为它保留原始报告和完整审计轨迹。

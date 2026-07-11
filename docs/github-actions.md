@@ -72,8 +72,8 @@ Node preserves MoonGuard's exit status:
 
 - `0`: the proposed version is sufficient;
 - `1`: the API impact requires a larger version bump;
-- `2`: input, configuration, or snapshot diagnostics prevented a reliable
-  comparison.
+- `2`: input, configuration, snapshot, or policy diagnostics prevented a
+  reliable comparison.
 
 ## JSON Artifact
 
@@ -98,5 +98,10 @@ report to a file:
           path: moonguard-release-plan.json
 ```
 
-Do not add an ignore rule only to make a failing build green. Each rule should
-include a reason and should be reviewed like a compatibility exception.
+For reviewed exceptions, prefer `--policy-file` over `--ignore-file`. A policy
+rule requires a reason and can impose an `until` version and `max_matches`
+budget; reports preserve both original and effective changes. `check-dir` and
+`release-plan` use `--next` as the policy target version, so a CI invocation can
+add only `--policy-file "$GITHUB_WORKSPACE/moonguard.policy"`. Invalid, expired,
+or over-budget policy rules exit with `2` instead of silently accepting a
+change. Review policy edits like source code and release approvals.

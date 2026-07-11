@@ -47,11 +47,16 @@ Implemented capabilities:
   recommendation.
 - Parse simple ignore-rule files and filter accepted or experimental API
   changes from reports.
-- Parse simple CLI config files for shared `format`, `ignore_file`, `current`,
-  `next`, `baseline`, `target`, `baseline_dir`, and `target_dir` defaults.
+- Parse and evaluate auditable policy rules with reasons, optional SemVer
+  deadlines, match budgets, accepted-change records, and fail-closed
+  diagnostics while preserving original and effective reports.
+- Parse simple CLI config files for shared `format`, `ignore_file`,
+  `policy_file`, `policy_version`, `current`, `next`, `baseline`, `target`,
+  `baseline_dir`, and `target_dir` defaults.
 - Build package snapshots from multiple `.mbti` files.
-- Compare package directories with file namespaces so same-named symbols in
-  different files do not overwrite each other.
+- Identify package APIs by parent-directory scope plus symbol identity. The
+  source filename remains diagnostic provenance, so moving an API between
+  files in one package is unchanged while cross-package names stay distinct.
 - Ignore generated, vendored, fixture, coverage, and nested tool directories
   when a project root is scanned.
 - Report directory diagnostics such as empty input, no `.mbti` files, duplicate
@@ -88,31 +93,26 @@ moon run --target js cmd/main -- inventory-dir --config fixtures/moonguard-ci.co
 
 ## Architecture
 
-Current implementation is intentionally compact while the grammar is still
-being validated:
+The core and CLI have been split by stable responsibility:
 
-- `moonguard.mbt`
-  - public API model
-  - interface parser
-  - diff engine
-  - SemVer recommendation and version-bump checks
-  - ignore-rule parser and report filtering
-  - package snapshot model and diagnostics
-  - Markdown and JSON report renderers
-- `cmd/main/main.mbt`
-  - CLI entry point for text, file, directory, inventory, check, check-dir, and
-    shared config defaults
-- `cmd/main/read_file_js.mbt`
-  - JS backend file and directory reading through Node APIs
-- `cmd/main/read_file_nonjs.mbt`
-  - clear fallback message for non-JS backends
+- `api_model.mbt`: public API, change, report, snapshot, and diagnostic models;
+- `parser.mbt`: `.mbti` parsing and normalization;
+- `snapshot.mbt`: package snapshots, scope derivation, and duplicate checks;
+- `diff.mbt`: item and snapshot comparison;
+- `semver.mbt`: version parsing, recommendations, and bump validation;
+- `policy.mbt`: auditable policy parsing, evaluation, and policy release plans;
+- `report_markdown.mbt` / `report_json.mbt`: format-specific rendering;
+- `moonguard.mbt`: compatibility helpers retained as a small core surface;
+- `cmd/main/args.mbt`, `config.mbt`, `commands.mbt`, `output.mbt`, and
+  `snapshot_io.mbt`: CLI parsing, resolution, dispatch, output, and snapshot
+  integration;
+- `cmd/main/read_file_js.mbt` / `read_file_nonjs.mbt`: backend-specific I/O;
 - `moonguard_test.mbt`
   - black-box behavior tests
 - `moonguard_wbtest.mbt`
   - package-scope parser tests
-
-The next step is to split parser, model, diff, semver, report, and CLI into
-separate modules once more grammar coverage is added.
+- `policy_test.mbt` / `policy_wbtest.mbt`
+  - policy API and internal fail-closed behavior tests
 
 ## Design Decisions
 
@@ -137,8 +137,17 @@ Unrecognized `pub` lines are not discarded. They are retained as `unknown`
 items so that public surface changes remain visible until the parser gains
 first-class support for that syntax.
 
-Ignore rules only filter the rendered report and derived recommendation. They
-do not change `parse_interface`, raw snapshots, or the underlying API model.
+Directory snapshot identity deliberately excludes the `.mbti` filename. The
+parent directory supplies package scope and the declaration supplies symbol
+identity; the full path is kept only for diagnostics. This makes same-package
+file moves compatibility-neutral without merging symbols from different
+packages.
+
+Legacy ignore rules only filter the report and derived recommendation. The
+preferred policy layer retains the original report, records accepted changes
+with their owning rules, and derives an effective report. Invalid, expired, or
+over-budget rules accept nothing and block reliable CI decisions with exit code
+`2`.
 
 ## Testing
 
@@ -157,8 +166,13 @@ Current tests cover:
 - JSON report rendering;
 - SemVer parsing and version-bump validation;
 - ignore-rule parsing and filtering;
+- policy parsing, deadlines, default and explicit match budgets, unmatched and
+  overlapping diagnostics, original/effective reports, and policy-aware
+  release decisions;
 - config parsing, path defaults, and command-line override behavior;
 - package snapshot construction and diagnostics;
+- same-package cross-file moves, cross-package same-name symbols, and
+  same-package duplicate detection;
 - package report, package check, and inventory rendering;
 - CLI argument handling;
 - JS-target file and directory CLI smoke tests;
@@ -174,6 +188,7 @@ moon fmt
 moon info
 moon check
 moon test
+moon test --target js
 moon run cmd/main -- --version
 moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti --format json
 moon run --target js cmd/main -- report --config fixtures/moonguard-ci.conf
@@ -193,30 +208,30 @@ node _build/js/debug/build/cmd/main/main.js check-dir --config fixtures/moonguar
 Current local result:
 
 ```text
-Total tests: 139, passed: 139, failed: 0.
+Total tests: 162, passed: 162, failed: 0.
+JS target tests: 163, passed: 163, failed: 0.
 Instrumented coverage: 1900/2183 lines (87.0%).
 ```
 
 The real-world corpus contains 15 pinned public interface snapshots from 15
-repositories. It produces 6700 modeled API items, zero `unknown` items, and zero
-snapshot diagnostics. Fourteen modern-format samples are fully modeled. One
-historical `python.mbt` snapshot contains 119 associated `fn`/`impl` lines
-without a visibility prefix and is explicitly marked partial rather than being
-presented as fully covered.
+repositories. It produces 6819 modeled API items, zero `unknown` items, and zero
+snapshot diagnostics. All samples are fully modeled. The historical
+`python.mbt` snapshot contributes 119 associated `fn`/`impl` lines without a
+visibility prefix through generator-header-gated legacy inference.
 
 ## Known Limits
 
 - File-based CLI input currently requires the JS backend and Node runtime.
 - Parser coverage is still line-oriented and intentionally focused on generated
   `.mbti` shapes rather than full MoonBit source syntax.
-- Historical interface files can contain unqualified associated methods or
-  `impl` lines. The corpus analyzer reports them, but the compatibility model
-  does not yet include them.
+- Legacy inference currently depends on the historical `moon info` generator
+  header and package declaration; other undocumented historical formats may
+  still require new fixtures and parser rules.
 - `moon run --target js` does not reliably propagate a nonzero JavaScript
   process exit status. The generated JS file does return the intended status
   when run directly with Node, so CI uses direct Node execution for strict
   failing `check` assertions.
-- The tracked `.mbt` source total is currently 7098 lines excluding `_build`.
+- The tracked `.mbt` source total is currently 8502 lines excluding `_build`.
   Future implementation slices should keep the project comfortably above the
   5000-line competition threshold.
 
@@ -225,12 +240,8 @@ presented as fully covered.
 Near-term work:
 
 - Add native file input support when a stable MoonBit file IO path is available.
-- Split implementation into parser, model, diff, semver, report, and CLI
-  modules.
 - Add baseline-oriented release commands that can save or consume published
   interface snapshots.
-- Add a legacy interface mode for unqualified associated methods and `impl`
-  declarations.
 - Continue expanding the pinned real-world corpus when new MoonBit interface
   shapes appear.
 

@@ -28,11 +28,17 @@ engineering infrastructure for package authors and CI workflows.
   notes, and downstream tooling.
 - Validate whether a proposed SemVer bump satisfies the recommended impact for
   single-file or package-directory comparisons.
-- Filter accepted or experimental changes with simple ignore rules.
+- Evaluate compatibility exceptions with auditable policy rules that retain the
+  original report, accepted changes, reasons, deadlines, match budgets, and
+  diagnostics. Legacy ignore rules remain available for compatibility.
 - Share repeated CLI defaults through simple config files.
 - Compare package directories, detect duplicate symbols and directory
   diagnostics, ignore generated/vendor/tool directories, and render snapshot
   inventories.
+- Identify directory APIs by parent-directory package scope plus symbol, so
+  moving a declaration between `.mbti` files inside one package is not reported
+  as an API change while same-named symbols in different packages remain
+  distinct.
 - Read `.mbti` files and directories from the CLI when running on the JS
   backend.
 - Render package release plans that combine API impact, diagnostics, SemVer
@@ -47,6 +53,7 @@ git clone https://github.com/918154429/moonguard.git
 cd moonguard
 moon check
 moon test
+moon test --target js
 ```
 
 ## Library Usage
@@ -105,6 +112,8 @@ baseline = fixtures/old.mbti
 target = fixtures/new.mbti
 baseline_dir = fixtures/dir-old
 target_dir = fixtures/dir-new
+policy_file = fixtures/allow-render.policy
+policy_version = 0.2.0
 ```
 
 ```sh
@@ -141,6 +150,31 @@ ignore * pkg.generated.mbti::internal_*
 ```sh
 moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti --ignore-file fixtures/ignore-render.rules
 ```
+
+For release governance, prefer an auditable policy file:
+
+```text
+allow changed fn render until 0.2.0 max_matches 1 reason render migration reviewed
+allow removed fn legacy_* max_matches 2 reason legacy cleanup approved
+```
+
+The syntax is `allow CHANGE_KIND ITEM_KIND NAME [until VERSION]
+[max_matches N] reason TEXT...`. `CHANGE_KIND` is `added`, `removed`,
+`changed`, or `*`; item kind and name also support `*` matching. A non-empty
+reason is mandatory and `max_matches` defaults to `1`. Expired rules, malformed
+rules, missing policy versions, and exceeded budgets fail closed with exit code
+`2`. Unmatched and overlapping rules remain visible as warnings.
+
+```sh
+moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti --policy-file fixtures/allow-render.policy --policy-version 0.2.0
+moon run --target js cmd/main -- check fixtures/old.mbti fixtures/new.mbti --current 0.1.0 --next 0.2.0 --policy-file fixtures/allow-render.policy
+```
+
+Policy output preserves both `original_report` and `effective_report`, plus the
+accepted changes and rule diagnostics. `check`, `check-dir`, and `release-plan`
+use `--next` as the policy version when `--policy-version` is omitted.
+`--ignore-file` and `--policy-file` are mutually exclusive, and
+`inventory-dir` does not accept policy files.
 
 File and directory commands currently require the JS backend because the CLI
 uses Node `fs.readFileSync` and directory APIs through MoonBit JS externs.
@@ -183,18 +217,24 @@ including common nested members from generated interface files. Any
 unrecognized `pub` line is retained as `unknown` so that public surface changes
 remain visible instead of being silently ignored.
 
+For directory snapshots, a symbol's logical identity is its parent-directory
+scope plus its declaration identity; the `.mbti` filename is provenance, not
+identity. Therefore moving `pkg/a.mbti::render` to `pkg/b.mbti::render` produces
+no compatibility change. Moving it to another package scope does change its
+logical name, and duplicate definitions within one package are still diagnosed.
+
 The complete rule table and rationale are in
 [docs/api-compat-rules.md](docs/api-compat-rules.md).
 
 ## Real-World Validation
 
 The repository includes 15 pinned public `pkg.generated.mbti` samples from
-official and community MoonBit projects. MoonGuard currently extracts 6700 API
+official and community MoonBit projects. MoonGuard currently extracts 6819 API
 items from this corpus with zero unknown declarations and zero snapshot
-diagnostics. Fourteen modern-format samples are fully modeled; one historical
-sample is marked partial because 119 legacy associated `fn`/`impl` lines do not
-carry a public visibility prefix and are intentionally reported as a known
-coverage gap.
+diagnostics. All 15 samples are fully modeled, including one historical sample
+whose generated interface contains 119 associated `fn`/`impl` lines without a
+public visibility prefix. Legacy inference is restricted to files identified
+by the `moon info` generator header and package declaration.
 
 - Sources, revisions, and licenses:
   [fixtures/real/SOURCES.md](fixtures/real/SOURCES.md)
@@ -205,6 +245,15 @@ coverage gap.
 
 ## Development
 
+The implementation is split by responsibility: `api_model.mbt`, `parser.mbt`,
+`snapshot.mbt`, `diff.mbt`, `semver.mbt`, `policy.mbt`,
+`report_markdown.mbt`, and `report_json.mbt`. The CLI is likewise separated
+into argument parsing, configuration, commands, output, snapshot I/O, and
+backend-specific file I/O under `cmd/main`.
+
+Current validation result: 162/162 default-target tests and 163/163 JS-target
+tests pass.
+
 Common checks:
 
 ```sh
@@ -212,6 +261,7 @@ moon fmt
 moon info
 moon check
 moon test
+moon test --target js
 moon run --target js cmd/main -- report fixtures/old.mbti fixtures/new.mbti --format json
 moon run --target js cmd/main -- report --config fixtures/moonguard-ci.conf
 moon run --target js cmd/main -- report-dir fixtures/dir-old fixtures/dir-new
@@ -230,7 +280,7 @@ Generated `pkg.generated.mbti` files are kept in the repository so interface
 changes are reviewable after `moon info`.
 
 Competition source-line tracking counts repository `.mbt` source files and
-excludes generated `_build` output. The current tracked source total is 7098
+excludes generated `_build` output. The current tracked source total is 8502
 lines, so future code changes should keep the project above the 5000-line
 threshold.
 

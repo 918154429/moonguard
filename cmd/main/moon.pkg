@@ -8,5 +8,7 @@ options(
   targets: {
     "read_file_js.mbt": [ "js" ],
     "read_file_nonjs.mbt": [ "not", "js" ],
+    "main_js_wbtest.mbt": [ "js" ],
+    "main_nonjs_wbtest.mbt": [ "not", "js" ],
   },
 )
