@@ -48,7 +48,7 @@ From PowerShell, regenerate every snapshot and report with:
 ```
 
 The script uses IPv4, retries GitHub raw downloads, verifies every external
-snapshot hash, extracts MoonGuard's old interface from the signed `v0.1.0` Git
+snapshot hash, extracts MoonGuard's old interface from the annotated `v0.1.0` Git
 tag, and emits both Markdown and JSON reports. The reports describe the pinned
 commits only; they do not claim that those commits correspond to upstream
 release tags.
