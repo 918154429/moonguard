@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "ccfoss/moonguard"
+package "918154429/moonguard"
 
 import {
   "moonbitlang/core/debug",

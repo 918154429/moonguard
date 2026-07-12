@@ -1,5 +1,5 @@
 import {
-  "ccfoss/moonguard",
+  "918154429/moonguard",
   "moonbitlang/core/env",
 }
 

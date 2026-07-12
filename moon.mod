@@ -9,9 +9,9 @@
 //   "moonbitlang/x@0.4.6",
 // }
 
-name = "ccfoss/moonguard"
+name = "918154429/moonguard"
 
-version = "0.1.0"
+version = "0.2.0"
 
 readme = "README.md"
 

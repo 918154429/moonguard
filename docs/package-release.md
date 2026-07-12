@@ -2,24 +2,23 @@
 
 ## 当前状态
 
-截至 2026-07-11，项目已经通过本地打包检查，但尚未发布到 mooncakes：
+截至 2026-07-12，项目已经通过本地打包检查，准备发布到 mooncakes：
 
 - MoonBit 工具链：`moon 0.1.20260608`。
-- 模块名：`ccfoss/moonguard`。
-- 模块版本：`0.1.0`。
+- 模块名：`918154429/moonguard`。
+- 模块版本：`0.2.0`。
 - `moon package --list` 成功并生成发布包。
 - 当前打包检查已通过；加入演化证据并切换到 `0.2.0` 后需重新生成最终发布包。
-- 本机 `moon whoami` 状态为未登录，因此 `moon publish --dry-run` 尚不能完成。
+- 本机 `moon whoami` 已验证为 `918154429`。
 - `v0.1.0` 是 GitHub 与 GitLink 上已经存在的历史标签，不能重写。
 - 当前公开接口相对 `v0.1.0` 新增 policy 相关类型和函数，MoonGuard 自身的规则应判定为
   `minor` 变化，因此建议首次 mooncakes 发布使用 `0.2.0`。
 
 ## 发布前决策
 
-1. 运行 `moon login`，再用 `moon whoami` 确认发布账号。
-2. 确认该账号拥有 `ccfoss` 命名空间；如果没有，应在首次发布前修改 `moon.mod`
-   中的模块名，不能在发布后随意迁移。
-3. 将 `moon.mod` 版本更新为 `0.2.0`，使用 `release-notes-v0.2.0.md`，并在最终发布
+1. 运行 `moon whoami`，确认发布账号为 `918154429`。
+2. 确认 `moon.mod` 模块名为 `918154429/moonguard`；首次发布后不再迁移命名空间。
+3. 使用 `release-notes-v0.2.0.md`，并在最终发布
    提交上创建新的 `v0.2.0` 标签。禁止让注册中心版本、Git 标签和源码不一致。
 4. 在最终发布提交上重新运行全部检查，再同步标签和发布说明。
 
@@ -46,13 +45,13 @@ moon publish
 作为库依赖：
 
 ```sh
-moon add ccfoss/moonguard@0.2.0
+moon add 918154429/moonguard@0.2.0
 ```
 
 安装 CLI 主包：
 
 ```sh
-moon install ccfoss/moonguard/cmd/main@0.2.0
+moon install 918154429/moonguard/cmd/main@0.2.0
 ```
 
 安装后应验证可执行程序名称和 `--help` 输出，再把最终安装命令移到仓库 README 的

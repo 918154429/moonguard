@@ -53,7 +53,20 @@ for reviewers.
 
 ## Installation
 
-Install the MoonBit toolchain, then clone this repository:
+Install the library from mooncakes.io:
+
+```sh
+moon add 918154429/moonguard@0.2.0
+```
+
+Install the command-line package:
+
+```sh
+moon install 918154429/moonguard/cmd/main@0.2.0
+```
+
+For source development, install the MoonBit toolchain, then clone this
+repository:
 
 ```sh
 git clone https://github.com/918154429/moonguard.git
