@@ -2,13 +2,16 @@
 
 ## 当前状态
 
-截至 2026-07-12，项目已经通过本地打包检查，准备发布到 mooncakes：
+截至 2026-07-12，项目已经发布到 mooncakes 并完成安装验证：
 
 - MoonBit 工具链：`moon 0.1.20260608`。
 - 模块名：`918154429/moonguard`。
 - 模块版本：`0.2.0`。
 - `moon package --list` 成功并生成发布包。
-- 当前打包检查已通过；加入演化证据并切换到 `0.2.0` 后需重新生成最终发布包。
+- `moon publish --dry-run` 获得服务器 `202 Accepted`，确认不会产生变更。
+- `moon publish` 获得服务器 `200 OK`，正式发布成功。
+- mooncakes manifest 与文档构建均确认版本 `0.2.0`，状态为 `SUCCESS`。
+- 从全新项目执行 `moon add 918154429/moonguard@0.2.0` 并通过 `moon check`。
 - 本机 `moon whoami` 已验证为 `918154429`。
 - `v0.1.0` 是 GitHub 与 GitLink 上已经存在的历史标签，不能重写。
 - 当前公开接口相对 `v0.1.0` 新增 policy 相关类型和函数，MoonGuard 自身的规则应判定为
